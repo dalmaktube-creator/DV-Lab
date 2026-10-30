@@ -9,7 +9,7 @@
 
 ## Authority and authenticity
 
-At initial installation the operator approves a root-owned update policy: **dalmaktube-creator/DV-Lab**, branch **main**, successful latest check results from GitHub Actions jobs **unit-and-protocol**, **ubuntu-isolation** and **ubuntu-22-hub**, fixed schema version 1. Private unauthenticated API access fails closed. No GitHub personal token is kept on the server.
+At initial installation the operator approves a root-owned update policy: **dalmaktube-creator/DV-Lab**, branch **main**, successful latest check results from GitHub Actions jobs **unit-and-protocol**, **ubuntu-isolation** and **ubuntu-22-hub**, fixed request schema version 1 and guard generation 2. Private unauthenticated API access fails closed. No GitHub personal token is kept on the server.
 
 The broker checks the full commit is main or an ancestor of main. Downloads use validated HTTPS to api.github.com/codeload.github.com. Every selected file is checked using its Git blob identity against the pinned commit tree. No unsigned arbitrary URL or arbitrary branch/string is accepted. This is a **GitHub/repository trust model**, not a separate offline release-signing key. A malicious maintainer, compromised GitHub account/Actions configuration or hostile main commit can change unprivileged application behavior; CI is not a security review. Protect main and GitHub access. The initial `curl | sudo bash` itself trusts the raw main installer; inspect/download it first if that trust is unacceptable.
 
@@ -19,7 +19,7 @@ Versioned, root-owned Python application files, docs, installer source for futur
 
 **Not changed through MCP:** pinned root broker, nft helper, operator root console snapshot, sudoers, systemd unit files, `/etc/dv-lab` configuration, cgroup ceilings, host packages, TLS keys or the Podman base image. Neither `install.sh` nor `setup.py` from a download is run by the root worker. Application code is only executed under dvlab-hub/dvlab-node services. The root console uses an independent pinned initial snapshot so an app update does not replace the next root menu command.
 
-The fixed broker is the only narrow sudo update allowance. It accepts bounded JSON with check/status/apply/rollback; no executable/path/URL argument. A separate fixed root systemd worker performs updates with CPU/RAM limits. Hub NoNewPrivileges cannot be enabled while using this sudo broker; the narrow broker, its immutable policy and the inherited service hardening are the relevant boundary. Never replace the allowance with unrestricted sudo.
+The fixed root broker is socket-activated through `/run/dv-lab/update.sock`; no idle Python daemon is required. Socket mode/group and kernel SO_PEERCRED checks restrict callers to root and the dedicated lab service UIDs. It accepts bounded JSON with check/status/apply/rollback; no executable/path/URL argument. No update sudoers allowance is installed. The hub retains explicit NoNewPrivileges=yes. Broker instances and the separate fixed root worker share a root-owned maintenance slice capped at 0.2 CPU / 128MiB. Never replace this boundary with unrestricted sudo or mount the broker socket into a capsule.
 
 Root helper/schema/host-image upgrades need a separately reviewed operator installation step. A future package must explicitly bump the required guard/schema; the old broker rejects it instead of silently obtaining wider authority.
 
@@ -43,4 +43,4 @@ Download test artifacts → check candidate → one canary node → status and r
 
 No periodic unattended upgrade is enabled. The operator or authenticated MCP caller explicitly requests every rollout; the agent can do this without new SSH sessions or a repeated manual installer.
 
-The extra Jammy hub check is part of the new-install guard policy from 0.2.0-preview.3. Existing installations retain their pinned root guard and its prior check set until an operator-reviewed helper migration; an ordinary application update does not replace it. This does not enable Jammy agents.
+The extra Jammy hub check is part of the new-install guard policy from 0.2.0-preview.3. Existing installations retain their pinned root guard and its prior check set until an operator-reviewed helper migration; an ordinary application update does not replace it. This does not enable Jammy agents. Guard generation 2 also introduces the local socket broker and its pinned units; older guards reject release manifests requiring generation 2, so application-only self-update cannot silently install privileged units.

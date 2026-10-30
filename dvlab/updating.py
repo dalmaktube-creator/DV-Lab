@@ -2,8 +2,10 @@
 import json
 from pathlib import Path
 import re
-import subprocess
+import socket
 from . import __version__
+
+BROKER_SOCKET="/run/dv-lab/update.sock"
 
 def identity():
     p=Path(__file__).resolve().parent.parent/'.source-commit'
@@ -20,9 +22,17 @@ def validate_update(a):
 def broker(a):
     validate_update(a)
     data={k:v for k,v in a.items() if k!='op'}
-    p=subprocess.run(['sudo','-n','/usr/local/sbin/dv-lab-update'],input=json.dumps(data).encode(),capture_output=True,timeout=90)
-    if len(p.stdout)>16384 or len(p.stderr)>4096:raise RuntimeError('Broker response bound exceeded')
-    try:value=json.loads(p.stdout)
-    except ValueError:raise RuntimeError('Update broker unavailable; inspect local installation')
-    if p.returncode:raise RuntimeError(value.get('error','Update refused'))
+    try:
+        with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as connection:
+            connection.settimeout(90)
+            connection.connect(BROKER_SOCKET)
+            connection.sendall(json.dumps(data).encode())
+            connection.shutdown(socket.SHUT_WR)
+            with connection.makefile('rb') as response:raw=response.read(16385)
+    except OSError:
+        raise RuntimeError('Local update socket unavailable; inspect dv-lab-update-broker.socket') from None
+    if len(raw)>16384:raise RuntimeError('Broker response bound exceeded')
+    try:value=json.loads(raw)
+    except ValueError:raise RuntimeError('Invalid local update response') from None
+    if 'error' in value:raise RuntimeError(value['error'])
     return value

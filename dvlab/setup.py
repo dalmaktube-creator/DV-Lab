@@ -121,13 +121,14 @@ def files():
         entry.write_text('#!/bin/sh\nexec /usr/bin/python3 -I /usr/local/lib/dv-lab/update_guard.py "$@"\n');entry.chmod(0o755)
     state=Path('/var/lib/dv-lab-updater');state.mkdir(mode=0o700,exist_ok=True);state.chmod(0o700)
     policy=ETC/'update-policy.json'
-    if not policy.exists():config(policy,dict(repository='dalmaktube-creator/DV-Lab',guard_schema=1))
+    if not policy.exists():config(policy,dict(repository='dalmaktube-creator/DV-Lab',guard_schema=2))
     unit=Path('/etc/systemd/system/dv-lab-update.service')
     if not unit.exists():unit.write_text("""[Unit]
 Description=DV Lab pinned application update worker
 After=network-online.target
 [Service]
 Type=oneshot
+Slice=dv-lab-maintenance.slice
 ExecStart=/usr/bin/python3 -I /usr/local/lib/dv-lab/update_guard.py --worker
 UMask=0077
 CPUQuota=20%
@@ -142,9 +143,64 @@ TimeoutStartSec=600
 
 
 def grant_update(who):
-    sudo=Path('/etc/sudoers.d/dv-lab-update-'+who.pw_name)
-    sudo.write_text(who.pw_name+' ALL=(root) NOPASSWD: /usr/local/sbin/dv-lab-update ""\n');sudo.chmod(0o440)
-    run(['visudo','-cf',str(sudo)])
+    # Socket activation has no idle Python daemon. All maintenance jobs share a
+    # root-owned 0.2 CPU / 128MiB slice, independently of lab-account workloads.
+    group='dv-lab-update'
+    try:entry=grp.getgrnam(group)
+    except KeyError:
+        run(['groupadd','--system',group]);entry=grp.getgrnam(group)
+    if set(entry.gr_mem)-{'dvlab-hub','dvlab-node'}:
+        raise SystemExit('Reserved update group has unexpected members; inspect before installation')
+    run(['usermod','--append','--groups',group,who.pw_name])
+    units={
+      'dv-lab-maintenance.slice':"""[Unit]
+Description=DV Lab bounded maintenance budget
+[Slice]
+CPUQuota=20%
+MemoryMax=128M
+MemorySwapMax=0
+TasksMax=64
+""",
+      'dv-lab-update-broker.socket':"""[Unit]
+Description=DV Lab local authenticated update request socket
+[Socket]
+ListenStream=/run/dv-lab/update.sock
+SocketUser=root
+SocketGroup=dv-lab-update
+SocketMode=0660
+DirectoryMode=0755
+Accept=yes
+MaxConnections=4
+RemoveOnStop=yes
+[Install]
+WantedBy=sockets.target
+""",
+      'dv-lab-update-broker@.service':"""[Unit]
+Description=DV Lab narrow update request broker
+[Service]
+Type=exec
+Slice=dv-lab-maintenance.slice
+ExecStart=/usr/bin/python3 -I /usr/local/lib/dv-lab/update_guard.py
+StandardInput=socket
+StandardOutput=inherit
+StandardError=journal
+RuntimeMaxSec=90
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/dv-lab-updater
+CPUQuota=20%
+MemoryMax=64M
+MemorySwapMax=0
+TasksMax=16
+UMask=0077
+"""}
+    for name,content in units.items():
+        p=Path('/etc/systemd/system')/name
+        if not p.exists():p.write_text(content)
+    run(['systemctl','daemon-reload'])
+    run(['systemctl','enable','--now','dv-lab-update-broker.socket'])
 
 
 def account(name):
@@ -204,6 +260,8 @@ Wants=network-online.target
 [Service]
 User=dvlab-hub
 Group=dvlab-hub
+SupplementaryGroups=dv-lab-update
+NoNewPrivileges=yes
 WorkingDirectory=/opt/dv-lab/current
 ExecStart=/usr/bin/python3 -m dvlab.hub
 Restart=on-failure

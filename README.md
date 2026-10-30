@@ -57,6 +57,6 @@ python3 -m compileall -q dvlab scripts
 bash -n install.sh scripts/ci-isolation.sh
 ```
 
-42 local regression tests passed at publication preparation. GitHub CI is configured to repeat those tests and run rootless Podman/TUN/cgroup/nft smoke on a disposable Ubuntu runner. **A configured workflow is not evidence it passed**; consult the actual Actions run. Multi-server throughput, target-host overhead, reboot/fault acceptance and deployment remain separate validation tasks. The CI helper refuses execution outside GitHub Actions and must never be run on production.
+44 local regression tests passed at publication preparation. GitHub CI is configured to repeat those tests and run rootless Podman/TUN/cgroup/nft smoke on a disposable Ubuntu runner. **A configured workflow is not evidence it passed**; consult the actual Actions run. Multi-server throughput, target-host overhead, reboot/fault acceptance and deployment remain separate validation tasks. The CI helper refuses execution outside GitHub Actions and must never be run on production.
 
-Ubuntu 22.04 support is **hub-only**: the `ubuntu-22-hub` CI job performs a real installation on a disposable Jammy VM, then checks TLS/MCP, the console, the narrow sudo update broker and service quotas. It is not a claim that Jammy rootless agents were validated; their installer still fails closed.
+Ubuntu 22.04 support is **hub-only**: the `ubuntu-22-hub` CI job performs a real installation on a disposable Jammy VM, then checks TLS/MCP, the console, the narrow local-socket update broker and service quotas. It is not a claim that Jammy rootless agents were validated; their installer still fails closed.

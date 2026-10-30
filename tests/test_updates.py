@@ -16,7 +16,7 @@ SHA='a'*40
 
 def archive(extra=None,manifest=None):
     files={'dvlab/'+p:b'# source\n' for p in g.APP_REQUIRED}
-    files['release.json']=json.dumps(manifest or dict(update_schema=1,database_schema=1,requires_guard=1,version='0.2.0-preview.1')).encode()
+    files['release.json']=json.dumps(manifest or dict(update_schema=1,database_schema=1,requires_guard=2,version='0.2.0-preview.1')).encode()
     files.update(extra or {})
     out=io.BytesIO()
     with tarfile.open(fileobj=out,mode='w:gz') as ar:
@@ -53,7 +53,7 @@ class Updates(unittest.TestCase):
             data,_=archive(extra)
             with tempfile.TemporaryDirectory() as d,self.assertRaises((ValueError,SyntaxError)):g.unpack(data,Path(d)/'x',SHA)
     def test_policy_change_is_rejected(self):
-        data,_=archive(manifest=dict(update_schema=2,database_schema=1,requires_guard=1,version='2'))
+        data,_=archive(manifest=dict(update_schema=2,database_schema=1,requires_guard=2,version='2'))
         with tempfile.TemporaryDirectory() as d,self.assertRaises(ValueError):g.unpack(data,Path(d)/'x',SHA)
     def test_no_downloaded_root_hooks(self):
         data,_=archive({'install.sh':b'echo not-executed','etc/sudoers':b'evil','scripts/root.sh':b'evil'})
@@ -113,3 +113,27 @@ class AccountEnvironment(unittest.TestCase):
             self.assertEqual(env['DBUS_SESSION_BUS_ADDRESS'],'unix:path=/run/user/1234/bus')
             self.assertNotIn('CONTAINERS_STORAGE_CONF',env)
             self.assertNotIn('SSH_AUTH_SOCK',env)
+
+class SocketUpdateTransport(unittest.TestCase):
+    def test_unprivileged_client_uses_socket_not_sudo(self):
+        import socket,threading
+        from dvlab import updating
+        with tempfile.TemporaryDirectory() as d:
+            path=str(Path(d)/'broker.sock');received=[]
+            listener=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM);listener.bind(path);listener.listen(1)
+            def serve():
+                c,_=listener.accept()
+                with c:
+                    with c.makefile('rb') as r:received.append(json.loads(r.read(4097)))
+                    c.sendall(b'{"state":"idle"}\n')
+            t=threading.Thread(target=serve);t.start()
+            try:
+                with patch.object(updating,'BROKER_SOCKET',path):self.assertEqual(updating.broker({'action':'status'}),{'state':'idle'})
+                t.join(3);self.assertFalse(t.is_alive());self.assertEqual(received,[{'action':'status'}])
+            finally:listener.close()
+    def test_kernel_peer_uid_must_be_approved(self):
+        import struct
+        from types import SimpleNamespace
+        fake=unittest.mock.MagicMock();fake.getsockopt.return_value=struct.pack('3i',10,999,999)
+        with patch.object(g.socket,'fromfd',return_value=fake),patch.object(g.pwd,'getpwnam',return_value=SimpleNamespace(pw_uid=1234)):
+            with self.assertRaisesRegex(ValueError,'Unapproved'):g.authorize_input()

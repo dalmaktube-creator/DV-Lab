@@ -14,6 +14,9 @@ import re
 import shutil
 import sqlite3
 import ssl
+import socket
+import struct
+import pwd
 import subprocess
 import sys
 import tarfile
@@ -112,7 +115,7 @@ def unpack(data,target,commit,tree=None):
             kept[str(rel)]=content
     if not all('dvlab/'+x in kept for x in APP_REQUIRED):raise ValueError('Incomplete application')
     manifest=json.loads(kept.get('release.json',b'{}'))
-    if manifest.get('update_schema')!=1 or manifest.get('database_schema')!=1 or manifest.get('requires_guard')!=1:raise ValueError('Root policy/schema migration needs operator approval')
+    if manifest.get('update_schema')!=1 or manifest.get('database_schema')!=1 or manifest.get('requires_guard')!=2:raise ValueError('Root policy/schema migration needs operator approval')
     if not isinstance(manifest.get('version'),str) or not re.fullmatch(r'[0-9A-Za-z.+_-]{1,64}',manifest['version']):raise ValueError('Invalid release version')
     target.mkdir(mode=0o755)
     for rel,content in kept.items():
@@ -270,15 +273,32 @@ def request(data):
     return dict(state='queued',commit=commit,next='status; control connection may reconnect during update')
 
 
+def authorize_input():
+    # On socket activation, the kernel supplies the real peer UID. No caller-
+    # supplied username, header, group name or JSON identity is trusted.
+    try:conn=socket.fromfd(0,socket.AF_UNIX,socket.SOCK_STREAM)
+    except OSError:return  # Explicit root operator CLI on a pipe/tty.
+    try:
+        try:peer=struct.unpack('3i',conn.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,struct.calcsize('3i')))[1]
+        except OSError:return
+    finally:conn.close()
+    allowed={0}
+    for name in ('dvlab-hub','dvlab-node'):
+        try:allowed.add(pwd.getpwnam(name).pw_uid)
+        except KeyError:pass
+    if peer not in allowed:raise ValueError('Unapproved local update peer')
+
+
 def main():
     if os.geteuid()!=0:raise SystemExit('Root broker required')
     os.umask(0o077)
     st=POLICY.stat()
     if st.st_uid!=0 or st.st_mode&0o022:raise SystemExit('Unsafe update policy')
     policy=json.loads(POLICY.read_text())
-    if policy.get('repository')!=REPO or policy.get('guard_schema')!=1:raise SystemExit('Unknown update trust policy')
+    if policy.get('repository')!=REPO or policy.get('guard_schema')!=2:raise SystemExit('Unknown update trust policy')
     if sys.argv[1:]==['--worker']:worker();return
     if sys.argv[1:]:raise SystemExit('No command-line arguments allowed')
+    authorize_input()
     raw=sys.stdin.buffer.read(4097)
     if len(raw)>4096:raise ValueError('Request too large')
     print(json.dumps(request(json.loads(raw))))

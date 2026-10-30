@@ -29,9 +29,10 @@ assert health['commit']==os.environ['GITHUB_SHA'],health
 mcp=Client(origin,cfg['mcp_token'])
 r=mcp.post('/mcp',dict(jsonrpc='2.0',id=1,method='initialize',params={'protocolVersion':'2025-03-26'}));assert r['result']['serverInfo']['name']=='DV Lab',r
 r=mcp.post('/mcp',dict(jsonrpc='2.0',id=2,method='tools/list'));assert len(r['result']['tools'])==12,r
-# Exercise the real unprivileged hub -> exact sudo broker path under its unit sandbox.
+# Exercise the real unprivileged hub -> local socket broker path under its unit sandbox.
 r=mcp.post('/mcp',dict(jsonrpc='2.0',id=3,method='tools/call',params={'name':'lab_update','arguments':{'target':'mother','action':'status'}}));assert r['result']['isError'] is False,r
 state=json.loads(r['result']['content'][0]['text']);assert state['current']==health['commit'],state
+assert subprocess.check_output(['systemctl','show','--property=NoNewPrivileges','--value','dv-lab-hub.service'],text=True).strip()=='yes'
 mcp.conn.close()
 try:
     Client(origin,'invalid-token').post('/mcp',dict(jsonrpc='2.0',id=4,method='tools/list'))
@@ -49,4 +50,4 @@ assert int((path/'memory.max').read_text())<=256*1048576
 assert (path/'memory.swap.max').read_text().strip()=='0'
 # Key inaccessible to an unrelated unprivileged account.
 p=subprocess.run(['runuser','-u','nobody','--','test','-r','/etc/dv-lab/tls/privkey.pem']);assert p.returncode!=0
-print('PASS: Ubuntu 22.04 real hub install, trusted TLS, authenticated MCP tools, pinned sudo update status, console command, cgroup quotas and private-key permissions')
+print('PASS: Ubuntu 22.04 real hub install, trusted TLS, authenticated MCP tools, pinned socket update status, console command, cgroup quotas and private-key permissions')
