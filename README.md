@@ -1,6 +1,6 @@
 # DV Lab
 
-**0.2.0-preview.4 — isolated multi-server test lab with an MCP controller.**
+**0.2.0-preview.5 — isolated multi-server test lab with an MCP controller.**
 
 [راهنمای فارسی](README.fa.md) · [Updates](UPDATE.md) · [Security boundaries](SECURITY.md) · [Acceptance checklist](CHECKLIST.md)
 
@@ -57,10 +57,10 @@ python3 -m compileall -q dvlab scripts
 bash -n install.sh scripts/ci-isolation.sh
 ```
 
-54 local regression tests passed at publication preparation. GitHub CI is configured to repeat those tests and run rootless Podman/TUN/cgroup/nft smoke on a disposable Ubuntu runner. **A configured workflow is not evidence it passed**; consult the actual Actions run. Multi-server throughput, target-host overhead, reboot/fault acceptance and deployment remain separate validation tasks. The CI helper refuses execution outside GitHub Actions and must never be run on production.
+59 local regression tests passed at publication preparation. GitHub CI is configured to repeat those tests and run rootless Podman/TUN/cgroup/nft smoke on a disposable Ubuntu runner. **A configured workflow is not evidence it passed**; consult the actual Actions run. Multi-server throughput, target-host overhead, reboot/fault acceptance and deployment remain separate validation tasks. The CI helper refuses execution outside GitHub Actions and must never be run on production.
 
 Ubuntu 22.04 support is **hub-only**: the `ubuntu-22-hub` CI job performs a real installation on a disposable Jammy VM, then checks TLS/MCP, the console, the narrow local-socket update broker and service quotas. It is not a claim that Jammy rootless agents were validated; their installer still fails closed.
 
 ### Installer interface
 
-Compact color-coded stages, short examples, a review before changes, and recoverable URL/port/PEM input errors. Occupied ports never trigger stopping another service. Detailed command output goes to a private root-owned install log instead of flooding the terminal; a failure shows its log path. NO_COLOR and non-TTY output remain plain. Stages are real milestones, not fabricated percentage progress. Public/firewall reachability is explicitly not inferred from a local port check.
+Separate bare-domain and HTTPS-port questions automatically build the secure URL (no scheme or www prefix to type). Compact color-coded stages, short examples, a review before changes, and recoverable URL/port/PEM input errors. Occupied ports never trigger stopping another service. Detailed command output goes to a private root-owned install log instead of flooding the terminal; a failure shows its log path. NO_COLOR and non-TTY output remain plain. Stages are real milestones, not fabricated percentage progress. Public/firewall reachability is explicitly not inferred from a local port check.

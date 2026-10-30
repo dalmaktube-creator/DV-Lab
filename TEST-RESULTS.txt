@@ -22,9 +22,14 @@ test_no_symlink_or_fifo_read (test_dvlab.RunnerTests.test_no_symlink_or_fifo_rea
 test_bad_pem_pair_is_explained_without_traceback_and_retried (test_install_ui.InstallUI.test_bad_pem_pair_is_explained_without_traceback_and_retried) ... ok
 test_bad_value_is_explained_and_reprompted (test_install_ui.InstallUI.test_bad_value_is_explained_and_reprompted) ... ok
 test_confirm_retries_typo_and_can_cancel (test_install_ui.InstallUI.test_confirm_retries_typo_and_can_cancel) ... ok
+test_default_port_is_passed_to_prompt (test_install_ui.InstallUI.test_default_port_is_passed_to_prompt) ... ok
+test_domain_accepts_bare_hostname_without_adding_www (test_install_ui.InstallUI.test_domain_accepts_bare_hostname_without_adding_www) ... ok
+test_domain_rejects_scheme_port_path_and_malformed_names (test_install_ui.InstallUI.test_domain_rejects_scheme_port_path_and_malformed_names) ... ok
 test_entrypoint_returns_success_and_errors_have_no_traceback (test_install_ui.InstallUI.test_entrypoint_returns_success_and_errors_have_no_traceback) ... ok
 test_non_tty_and_no_color_are_plain (test_install_ui.InstallUI.test_non_tty_and_no_color_are_plain) ... ok
 test_pem_path_requires_existing_full_file (test_install_ui.InstallUI.test_pem_path_requires_existing_full_file) ... ok
+test_port_requires_valid_integer_and_available_tcp (test_install_ui.InstallUI.test_port_requires_valid_integer_and_available_tcp) ... ok
+test_separate_questions_retry_only_bad_field_and_build_https (test_install_ui.InstallUI.test_separate_questions_retry_only_bad_field_and_build_https) ... ok
 test_small_terminal_wraps_and_color_does_not_hide_labels (test_install_ui.InstallUI.test_small_terminal_wraps_and_color_does_not_hide_labels) ... ok
 test_tcp_port_check_does_not_reserve_udp (test_install_ui.InstallUI.test_tcp_port_check_does_not_reserve_udp) ... ok
 test_url_rejects_path_http_low_port_and_busy_port (test_install_ui.InstallUI.test_url_rejects_path_http_low_port_and_busy_port) ... ok
@@ -54,6 +59,6 @@ test_validation (test_updates.Updates.test_validation) ... ok
 test_worker_rollback_on_failed_health (test_updates.Updates.test_worker_rollback_on_failed_health) ... ok
 
 ----------------------------------------------------------------------
-Ran 54 tests in 2.678s
+Ran 59 tests in 2.564s
 
 OK

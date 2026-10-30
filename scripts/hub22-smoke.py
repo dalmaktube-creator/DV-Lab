@@ -14,7 +14,7 @@ from dvlab.agent import Client
 
 if os.environ.get('GITHUB_ACTIONS')!='true' or os.geteuid()!=0:raise SystemExit('Disposable root CI only')
 origin='https://localhost:18443'
-answers=iter((origin,sys.argv[1],sys.argv[2]))
+answers=iter(('localhost','18443',sys.argv[1],sys.argv[2]))
 setup.prompt=lambda *args,**kwargs:next(answers)
 setup.confirm=lambda text:print('CI operator-approved install: hub only; no production server involved')
 try:

@@ -66,3 +66,31 @@ class InstallUI(unittest.TestCase):
         with patch.object(setup,'CONSOLE',Console(output)),patch.object(setup,'ask',side_effect=[Path('/cert1'),Path('/key1'),Path('/cert2'),Path('/key2')]),patch.object(setup.ssl,'SSLContext',return_value=context):
             self.assertEqual(setup.tls_files(),(Path('/cert2'),Path('/key2')))
         self.assertIn('matching PEM files',output.getvalue());self.assertNotIn('Traceback',output.getvalue())
+
+    def test_domain_accepts_bare_hostname_without_adding_www(self):
+        self.assertEqual(setup.domain_name('DVLAB.DalmakTube.cyou'),'dvlab.dalmaktube.cyou')
+        self.assertEqual(setup.domain_name('example.com'),'example.com')
+        self.assertEqual(setup.domain_name('www.example.com'),'www.example.com')
+        self.assertEqual(setup.domain_name('مثال.com'),'xn--mgbh0fb.com')
+    def test_domain_rejects_scheme_port_path_and_malformed_names(self):
+        for value in ('','https://example.com','example.com:2086','example.com/mcp','user@example.com','a b.com','-a.com','a-.com','a..com','127.0.0.1','[::1]','a'*64+'.com','example.com?x','example.com#x'):
+            with self.subTest(value=value),self.assertRaises(ValueError):setup.domain_name(value)
+    def test_port_requires_valid_integer_and_available_tcp(self):
+        for value in ('0','443','1023','65536','9443/mcp','abc','1.5','-1',''):
+            with self.subTest(value=value),self.assertRaises(ValueError):setup.hub_port(value)
+        with patch.object(setup,'portcheck') as check:
+            for value in ('1024','2086','9443','65535'):
+                self.assertEqual(setup.hub_port(value),int(value))
+            check.assert_called_with(65535,1,tcp_only=True)
+        with patch.object(setup,'portcheck',side_effect=OSError(98,'busy')):
+            with self.assertRaisesRegex(ValueError,'in use'):setup.hub_port('9443')
+    def test_separate_questions_retry_only_bad_field_and_build_https(self):
+        out=io.StringIO()
+        with patch.object(setup,'CONSOLE',Console(out)),patch.object(setup,'portcheck'),patch.object(setup,'prompt',side_effect=['https://example.com','dvlab.dalmaktube.cyou','wrong','2086']) as prompt:
+            self.assertEqual(setup.hub_address(),'https://dvlab.dalmaktube.cyou:2086')
+        self.assertEqual([call.args[0] for call in prompt.call_args_list],['Domain','Domain','HTTPS port','HTTPS port'])
+        self.assertIn('HTTPS address: https://dvlab.dalmaktube.cyou:2086',out.getvalue())
+    def test_default_port_is_passed_to_prompt(self):
+        with patch.object(setup,'CONSOLE',Console(io.StringIO())),patch.object(setup,'portcheck'),patch.object(setup,'prompt',side_effect=['example.com','9443']) as prompt:
+            self.assertEqual(setup.hub_address(),'https://example.com:9443')
+        self.assertEqual(prompt.call_args_list[-1].args,('HTTPS port','9443'))

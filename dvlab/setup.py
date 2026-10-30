@@ -86,6 +86,36 @@ def validate_hub_url(value):
     return url
 
 
+def domain_name(value):
+    value=value.strip()
+    if not value or any(c in value for c in '/:@?#\\') or any(c.isspace() for c in value):
+        raise ValueError('Enter only the domain, e.g. lab.example.com; no https://, port or path.')
+    try:host=value.encode('idna').decode('ascii').lower()
+    except UnicodeError:raise ValueError('Invalid domain. Example: lab.example.com') from None
+    if len(host)>253 or not all(re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?',label) for label in host.split('.')):
+        raise ValueError('Invalid domain. Example: lab.example.com')
+    try:ipaddress.ip_address(host)
+    except ValueError:return host
+    raise ValueError('Enter a domain, not an IP address; the TLS certificate must match it.')
+
+
+def hub_port(value):
+    if not re.fullmatch(r'[0-9]{1,5}',value) or not 1024<=int(value)<=65535:
+        raise ValueError('Enter a port number from 1024 to 65535, e.g. 9443.')
+    port=int(value)
+    # Reuse the same direct-TLS and local TCP availability checks.
+    validate_hub_url(f'https://port-check.invalid:{port}')
+    return port
+
+
+def hub_address():
+    domain=ask('Domain',domain_name,hint='Example: lab.example.com — no https:// or port; www is not required.')
+    port=ask('HTTPS port',hub_port,default='9443',hint='Local TCP check only; firewall/public access is not checked.')
+    url=f'https://{domain}:{port}'
+    CONSOLE.ok('HTTPS address: '+url)
+    return url
+
+
 def pem_path(value):
     try:
         p=Path(value).expanduser()
@@ -313,9 +343,7 @@ def hub():
     CONSOLE.stage(1,5,'System checks')
     preflight('hub');CONSOLE.ok('System and reserved account checked.')
     CONSOLE.stage(2,5,'Connection & TLS')
-    CONSOLE.hint('Example: https://lab.YOUR-DOMAIN.com:9443')
-    CONSOLE.hint('Local TCP check only; firewall/public access is not checked.')
-    url=ask('Public HTTPS address',validate_hub_url)
+    url=hub_address()
     parsed=urlsplit(url);port=parsed.port or 443
     cert,key=tls_files();CONSOLE.ok('PEM pair loaded.')
     CONSOLE.stage(3,5,'Review & approve')
