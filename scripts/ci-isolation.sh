@@ -16,6 +16,7 @@ printf '%s\n' "$GITHUB_SHA" > "$root/.source-commit"
 mkdir -p "$root/capsule/dvlab"
 cp dvlab/{__init__,common,runner,sampling}.py "$root/capsule/dvlab/"
 chmod -R a+rX "$root"
+cd "$root"
 # Ubuntu 24.04 AppArmor may restrict unprivileged user namespaces. Use the
 # packaged podman profile; do NOT disable AppArmor/sysctls globally to pass.
 runuser -u dvlab-ci -- env -i HOME=/home/dvlab-ci USER=dvlab-ci LOGNAME=dvlab-ci PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin XDG_CONFIG_HOME=/home/dvlab-ci/.config XDG_DATA_HOME=/home/dvlab-ci/.local/share XDG_RUNTIME_DIR="$runtime" DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" podman build -t localhost/dv-lab:ci "$root"

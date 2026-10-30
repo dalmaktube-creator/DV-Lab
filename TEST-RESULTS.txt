@@ -32,6 +32,6 @@ test_validation (test_updates.Updates.test_validation) ... ok
 test_worker_rollback_on_failed_health (test_updates.Updates.test_worker_rollback_on_failed_health) ... ok
 
 ----------------------------------------------------------------------
-Ran 32 tests in 2.354s
+Ran 32 tests in 2.324s
 
 OK

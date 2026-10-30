@@ -97,6 +97,7 @@ class AccountEnvironment(unittest.TestCase):
             args=run.call_args.args[0]
             self.assertEqual(args[args.index('env')+1],'-i')
             self.assertIn('HOME=/home/dvlab-node',args)
+            self.assertEqual(run.call_args.kwargs['cwd'],str(setup.ROOT/'current'))
             self.assertIn('XDG_CONFIG_HOME=/home/dvlab-node/.config',args)
         with patch('pwd.getpwnam',return_value=who):
             args=g.node_command('restart')
