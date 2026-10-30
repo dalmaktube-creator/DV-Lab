@@ -54,11 +54,25 @@ def confirm(text):
     if prompt('Type INSTALL to continue')!='INSTALL':raise SystemExit('Cancelled; no installation performed')
 
 
+def validate_platform(release,role):
+    values={}
+    for line in release.splitlines():
+        if '=' in line:
+            key,value=line.split('=',1);values[key]=value.strip().strip('"').strip("'")
+    if role not in ('hub','agent'):raise SystemExit('Role must be hub or agent')
+    version=values.get('VERSION_ID','unknown')
+    if values.get('ID')!='ubuntu':raise SystemExit('Only Ubuntu is supported; no unsafe fallback')
+    if role=='hub' and version in ('22.04','24.04'):return
+    if role=='agent' and version=='24.04':return
+    if role=='agent' and version=='22.04':
+        raise SystemExit('Ubuntu 22.04 supports the hub role only. Isolated agents require Ubuntu 24.04 and its validated Podman; no automatic OS upgrade or isolation bypass.')
+    raise SystemExit('Unsupported Ubuntu '+version+'. Hub: 22.04/24.04; agent: 24.04.')
+
+
 def preflight(role):
     if os.geteuid()!=0:raise SystemExit('Run as root')
-    release=Path('/etc/os-release').read_text()
-    if not re.search(r'^ID=ubuntu$',release,re.M) or not re.search(r'^VERSION_ID="24\.04"$',release,re.M):
-        raise SystemExit('Preview supports Ubuntu 24.04 only; no unsafe fallback')
+    if sys.version_info<(3,10):raise SystemExit('Python 3.10 or newer is required')
+    validate_platform(Path('/etc/os-release').read_text(),role)
     if not Path('/run/systemd/system').is_dir() or not Path('/sys/fs/cgroup/cgroup.controllers').is_file():
         raise SystemExit('systemd + cgroup v2 required')
     marker=ETC/(role+'.json')

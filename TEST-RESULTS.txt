@@ -19,6 +19,11 @@ test_job_deadline_and_logs (test_dvlab.RunnerTests.test_job_deadline_and_logs) .
 test_kill_and_concurrency_limit (test_dvlab.RunnerTests.test_kill_and_concurrency_limit) ... ok
 test_log_ring (test_dvlab.RunnerTests.test_log_ring) ... ok
 test_no_symlink_or_fifo_read (test_dvlab.RunnerTests.test_no_symlink_or_fifo_read) ... ok
+test_agent_supports_noble (test_platforms.Platforms.test_agent_supports_noble) ... ok
+test_hub_supports_jammy (test_platforms.Platforms.test_hub_supports_jammy) ... ok
+test_hub_supports_noble (test_platforms.Platforms.test_hub_supports_noble) ... ok
+test_jammy_agent_is_still_rejected (test_platforms.Platforms.test_jammy_agent_is_still_rejected) ... ok
+test_unknown_distro_or_role_is_rejected (test_platforms.Platforms.test_unknown_distro_or_role_is_rejected) ... ok
 test_default_role_with_pipe_stdin (test_terminal.TerminalPrompts.test_default_role_with_pipe_stdin) ... ok
 test_hidden_input_is_not_echoed (test_terminal.TerminalPrompts.test_hidden_input_is_not_echoed) ... ok
 test_no_controlling_terminal_has_friendly_error (test_terminal.TerminalPrompts.test_no_controlling_terminal_has_friendly_error) ... ok
@@ -37,6 +42,6 @@ test_validation (test_updates.Updates.test_validation) ... ok
 test_worker_rollback_on_failed_health (test_updates.Updates.test_worker_rollback_on_failed_health) ... ok
 
 ----------------------------------------------------------------------
-Ran 37 tests in 2.490s
+Ran 42 tests in 2.531s
 
 OK

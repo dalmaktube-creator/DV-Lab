@@ -17,7 +17,7 @@ jobs:
       - name: Syntax validation
         run: |
           python3 -m compileall -q dvlab scripts
-          bash -n install.sh scripts/ci-isolation.sh
+          bash -n install.sh scripts/ci-isolation.sh scripts/ci-hub22.sh
   ubuntu-isolation:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -34,3 +34,12 @@ jobs:
         run: |
           /usr/bin/python3 --version
           /usr/bin/python3 -m unittest discover -s tests -p test_terminal.py -v
+  ubuntu-22-hub:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Full Python 3.10 regression suite
+        run: /usr/bin/python3 -m unittest discover -s tests -v
+      - name: Install real hub, TLS, MCP and pinned update broker on disposable Jammy
+        run: sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" GITHUB_SHA="$GITHUB_SHA" bash scripts/ci-hub22.sh

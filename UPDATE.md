@@ -9,7 +9,7 @@
 
 ## Authority and authenticity
 
-At initial installation the operator approves a root-owned update policy: **dalmaktube-creator/DV-Lab**, branch **main**, successful latest check results from GitHub Actions jobs **unit-and-protocol** and **ubuntu-isolation**, fixed schema version 1. Private unauthenticated API access fails closed. No GitHub personal token is kept on the server.
+At initial installation the operator approves a root-owned update policy: **dalmaktube-creator/DV-Lab**, branch **main**, successful latest check results from GitHub Actions jobs **unit-and-protocol**, **ubuntu-isolation** and **ubuntu-22-hub**, fixed schema version 1. Private unauthenticated API access fails closed. No GitHub personal token is kept on the server.
 
 The broker checks the full commit is main or an ancestor of main. Downloads use validated HTTPS to api.github.com/codeload.github.com. Every selected file is checked using its Git blob identity against the pinned commit tree. No unsigned arbitrary URL or arbitrary branch/string is accepted. This is a **GitHub/repository trust model**, not a separate offline release-signing key. A malicious maintainer, compromised GitHub account/Actions configuration or hostile main commit can change unprivileged application behavior; CI is not a security review. Protect main and GitHub access. The initial `curl | sudo bash` itself trusts the raw main installer; inspect/download it first if that trust is unacceptable.
 
@@ -25,7 +25,7 @@ Root helper/schema/host-image upgrades need a separately reviewed operator insta
 
 ## Transaction / rollback
 
-1. Verify candidate/main ancestry and both latest CI checks.
+1. Verify candidate/main ancestry and all required latest CI checks.
 2. Download bounded source, reject links/devices/traversal/duplicates, verify selected Git blobs, parse Python without executing it, and check declared schema compatibility.
 3. Stage in `/opt/dv-lab/releases/<commit>` with readonly public code permissions. Keep a separate capsule-code directory and bootstrap archive, never include secrets.
 4. Detect which local DV Lab services are active. Stop those services; agent cleanup removes its own capsule. **All local `/work` files and active tests are lost; retrieve artifacts first.**
@@ -42,3 +42,5 @@ A machine power loss or forced termination during activation is not a fully cras
 Download test artifacts → check candidate → one canary node → status and real smoke → remaining nodes one by one → mother last → reconnect and inspect all reported commits. Do not automatically resume a benchmark that was interrupted. A lost action may have executed and must not be replayed by assumption.
 
 No periodic unattended upgrade is enabled. The operator or authenticated MCP caller explicitly requests every rollout; the agent can do this without new SSH sessions or a repeated manual installer.
+
+The extra Jammy hub check is part of the new-install guard policy from 0.2.0-preview.3. Existing installations retain their pinned root guard and its prior check set until an operator-reviewed helper migration; an ordinary application update does not replace it. This does not enable Jammy agents.

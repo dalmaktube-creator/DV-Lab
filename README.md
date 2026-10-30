@@ -1,12 +1,12 @@
 # DV Lab
 
-**0.2.0-preview.2 — isolated multi-server test lab with an MCP controller.**
+**0.2.0-preview.3 — isolated multi-server test lab with an MCP controller.**
 
 [راهنمای فارسی](README.fa.md) · [Updates](UPDATE.md) · [Security boundaries](SECURITY.md) · [Acceptance checklist](CHECKLIST.md)
 
 ## One-command installation
 
-Once this repository is public **and both CI jobs on main are green**:
+Once this repository is public **and all required CI jobs on main are green**:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dalmaktube-creator/DV-Lab/main/install.sh | sudo bash
@@ -14,7 +14,7 @@ curl -fsSL https://raw.githubusercontent.com/dalmaktube-creator/DV-Lab/main/inst
 
 The installer asks for **hub** or **agent**, reads prompts through `/dev/tty`, pins an exact main commit, requires passing GitHub CI, verifies downloaded files against that commit's Git tree, and asks for explicit confirmation before host changes. For a private repository, unauthenticated raw downloads do not work. No GitHub token is collected by this installer.
 
-**Preview, not production-certified.** Ubuntu 24.04 + systemd + cgroup v2 only. Hub needs an existing valid TLS certificate and public DNS; no automatic certificate issuance, nginx edits or host firewall overrides. There has been no deployment on the owner's Iran/Turkey servers.
+**Preview, not production-certified.** Hub: Ubuntu 22.04 or 24.04. Isolated agent: Ubuntu 24.04 only. Both require systemd + cgroup v2. Hub needs an existing valid TLS certificate and public DNS; no automatic certificate issuance, nginx edits or host firewall overrides. There has been no deployment on the owner's Iran/Turkey servers.
 
 ## Control center
 
@@ -42,7 +42,7 @@ The enclosing lab account, including the controller and rootless networking, def
 
 After code changes through Moory **or GitHub MCP**:
 
-1. Push to main; wait for `unit-and-protocol` and `ubuntu-isolation` to succeed.
+1. Push to main; wait for `unit-and-protocol`, `ubuntu-isolation` and `ubuntu-22-hub` to succeed.
 2. Call `lab_update` with `action=check`, `target=<node ID>`.
 3. Apply the explicit full commit SHA to a canary node, inspect status/version/health; update other nodes sequentially.
 4. Update `target=mother` last and reconnect if necessary.
@@ -57,4 +57,6 @@ python3 -m compileall -q dvlab scripts
 bash -n install.sh scripts/ci-isolation.sh
 ```
 
-37 local regression tests passed at publication preparation. GitHub CI is configured to repeat those tests and run rootless Podman/TUN/cgroup/nft smoke on a disposable Ubuntu runner. **A configured workflow is not evidence it passed**; consult the actual Actions run. Multi-server throughput, target-host overhead, reboot/fault acceptance and deployment remain separate validation tasks. The CI helper refuses execution outside GitHub Actions and must never be run on production.
+42 local regression tests passed at publication preparation. GitHub CI is configured to repeat those tests and run rootless Podman/TUN/cgroup/nft smoke on a disposable Ubuntu runner. **A configured workflow is not evidence it passed**; consult the actual Actions run. Multi-server throughput, target-host overhead, reboot/fault acceptance and deployment remain separate validation tasks. The CI helper refuses execution outside GitHub Actions and must never be run on production.
+
+Ubuntu 22.04 support is **hub-only**: the `ubuntu-22-hub` CI job performs a real installation on a disposable Jammy VM, then checks TLS/MCP, the console, the narrow sudo update broker and service quotas. It is not a claim that Jammy rootless agents were validated; their installer still fails closed.
