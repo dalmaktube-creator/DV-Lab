@@ -4,6 +4,7 @@ import http.client
 import json
 import os
 import pwd
+import re
 from pathlib import Path
 import signal
 import ssl
@@ -38,7 +39,14 @@ def fixed_run(argv, data=None, timeout=20):
     if len(p.stdout)>MAX_BODY or len(p.stderr)>65536:
         raise RuntimeError("Host helper output exceeded its fixed bound")
     if p.returncode:
-        raise RuntimeError("Fixed host helper failed: "+argv[0])
+        # Expose bounded Podman diagnostics, never argv, stdin, environment or
+        # arbitrary helper output. Control bytes/ANSI cannot alter the console.
+        message="Fixed host helper failed: "+argv[0]
+        if argv[0]=="podman" and len(argv)>1 and argv[1] in ("run","exec","inspect","rm"):
+            detail=re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "",p.stderr.decode("utf-8","replace"))
+            detail=" ".join("".join(c if c.isprintable() else " " for c in detail).split())[:400]
+            message+=f" {argv[1]} (exit {p.returncode}): "+detail
+        raise RuntimeError(message)
     return p.stdout
 
 
@@ -270,7 +278,7 @@ class Agent:
                         elif op["op"]=="resources":result=self.resources(op)
                         else:result=self.capsule.operate(op)
                     except Exception as exc:
-                        result={"ok":False,"error":type(exc).__name__+": "+str(exc)[:160]}
+                        result={"ok":False,"error":type(exc).__name__+": "+str(exc)[:512]}
                     # Retry only the same completion, NEVER replay its operation.
                     for attempt in range(3):
                         try:
