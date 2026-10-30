@@ -549,7 +549,7 @@ def agent(url=None):
     run(['loginctl','enable-linger',USER]);run(['systemctl','start',f'user@{who.pw_uid}.service'])
     # Build before UID-specific egress restriction and quotas; one-time cost, NOT benchmark overhead.
     userrun(who,['test','-r','/dev/net/tun']);userrun(who,['test','-w','/dev/net/tun'])
-    userrun(who,['podman','build','--pull=always','-t','localhost/dv-lab:preview','-f',str(ROOT/'current/Containerfile'),str(ROOT/'current')])
+    userrun(who,['podman','build','--pull=true','-t','localhost/dv-lab:preview','-f',str(ROOT/'current/Containerfile'),str(ROOT/'current')])
     image=userrun(who,['podman','image','inspect','--format','{{.Id}}','localhost/dv-lab:preview'],capture_output=True,text=True).stdout.strip()
     if not image.startswith('sha256:'):image='sha256:'+image
     cfg=dict(hub=url,**enrollment,image=image,port_start=45100,port_count=8,
@@ -603,14 +603,17 @@ KillMode=control-group
 [Install]
 WantedBy=default.target
 ''')
-    # Unit is root-owned, read-only to the dedicated user. Parent home isn't mounted in capsule.
+    # Root owns the unit and enablement link; the node cannot rewrite startup commands.
+    wants=unitdir/'default.target.wants';wants.mkdir(exist_ok=True)
+    (wants/unit.name).symlink_to('../'+unit.name)
+    # Parent home isn't mounted in capsule.
     CONSOLE.ok('Image, quotas and dedicated network guard configured.')
     CONSOLE.stage(6,6,'Start node')
     run(['systemctl','daemon-reload'])
     run(['systemctl','enable','--now','dv-lab-network.service'])
     run(['systemctl','set-property',f'user-{who.pw_uid}.slice','CPUQuota=50%','MemoryMax=192M','MemorySwapMax=0','TasksMax=128'])
     run(['systemctl','enable','--now','dv-lab-resources.socket'])
-    userrun(who,['systemctl','--user','daemon-reload']);userrun(who,['systemctl','--user','enable','--now','dv-lab-agent.service'])
+    userrun(who,['systemctl','--user','daemon-reload']);userrun(who,['systemctl','--user','start','dv-lab-agent.service'])
     CONSOLE.ok('Node service started.')
     CONSOLE.line('Next: sudo dv-lab','title')
     CONSOLE.hint('First capsule creation verifies namespaces, cgroups and TUN; failures stop the capsule.')
