@@ -155,3 +155,19 @@ class TLS(unittest.TestCase):
             with patch.object(tls,'healthy',side_effect=RuntimeError('TLS not healthy')),self.assertRaisesRegex(RuntimeError,'previous keypair restored'):
                 tls.deploy(self.plan,run)
             self.assertEqual(os.readlink(tls.DEST/'current'),before)
+
+    def test_live_https_health_uses_sni_and_host_with_nondefault_port(self):
+        import ssl,threading
+        from dvlab.hub import Hub,Server
+        cfg=dict(public_url='https://lab.example.com:9443',database=str(self.root/'hub.db'),admin_token='fixture-admin',mcp_token='fixture-mcp',bundle=str(self.root/'bundle'))
+        hub=Hub(cfg);server_context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        server_context.load_cert_chain(self.fixture/'good.pem',self.fixture/'good.key')
+        server=Server(('127.0.0.1',0),hub,server_context)
+        hub.origin='https://lab.example.com:'+str(server.server_port)
+        config=self.root/'hub.json';config.write_text(json.dumps({'port':server.server_port}))
+        context=ssl.create_default_context(cafile=str(self.fixture/'good.pem'))
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        try:
+            with patch.object(tls,'HUB_CONFIG',config),patch.object(tls.ssl,'create_default_context',return_value=context):
+                tls.healthy('lab.example.com')
+        finally:server.shutdown();server.server_close();thread.join(2)

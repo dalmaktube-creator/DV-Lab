@@ -20,6 +20,7 @@ import time
 LE=Path('/etc/letsencrypt')
 OWN=Path('/etc/dv-lab/acme')
 POLICY=Path('/etc/dv-lab/tls-policy.json')
+HUB_CONFIG=Path('/etc/dv-lab/hub.json')
 DEST=Path('/etc/dv-lab/tls')
 PINNED=Path('/usr/local/lib/dv-lab/tls_manager.py')
 NAME=re.compile(r'[a-zA-Z0-9][a-zA-Z0-9._-]{0,252}')
@@ -183,13 +184,13 @@ class Manager:
 
 
 def healthy(domain):
-    cfg=json.loads(Path('/etc/dv-lab/hub.json').read_text())
+    cfg=json.loads(HUB_CONFIG.read_text())
     context=ssl.create_default_context()
     for attempt in range(20):
         try:
             with socket.create_connection(('127.0.0.1',cfg['port']),timeout=2) as raw:
                 with context.wrap_socket(raw,server_hostname=domain) as conn:
-                    conn.sendall(('GET /health HTTP/1.1\r\nHost: '+domain+'\r\nConnection: close\r\n\r\n').encode('ascii'))
+                    conn.sendall(('GET /health HTTP/1.1\r\nHost: '+domain+':'+str(cfg['port'])+'\r\nConnection: close\r\n\r\n').encode('ascii'))
                     if conn.recv(128).split(b'\r\n',1)[0].split()[1:2]==[b'200']:return
         except OSError:pass
         time.sleep(.25)

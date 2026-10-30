@@ -52,6 +52,7 @@ test_existing_valid_cert_uses_dryrun_and_due_only_renewal (test_tls_manager.TLS.
 test_failed_existing_renewal_never_requests_duplicate_production_cert (test_tls_manager.TLS.test_failed_existing_renewal_never_requests_duplicate_production_cert) ... ok
 test_failed_restart_rolls_back_atomic_pair (test_tls_manager.TLS.test_failed_restart_rolls_back_atomic_pair) ... ok
 test_failed_tls_health_check_restores_previous_pair (test_tls_manager.TLS.test_failed_tls_health_check_restores_previous_pair) ... ok
+test_live_https_health_uses_sni_and_host_with_nondefault_port (test_tls_manager.TLS.test_live_https_health_uses_sni_and_host_with_nondefault_port) ... ok
 test_manual_renewal_without_automation_is_not_claimed_safe (test_tls_manager.TLS.test_manual_renewal_without_automation_is_not_claimed_safe) ... ok
 test_new_issue_staging_then_production_and_validates_pair (test_tls_manager.TLS.test_new_issue_staging_then_production_and_validates_pair) ... ok
 test_occupied_http_port_never_stops_a_service_or_calls_ca (test_tls_manager.TLS.test_occupied_http_port_never_stops_a_service_or_calls_ca) ... ok
@@ -75,6 +76,6 @@ test_validation (test_updates.Updates.test_validation) ... ok
 test_worker_rollback_on_failed_health (test_updates.Updates.test_worker_rollback_on_failed_health) ... ok
 
 ----------------------------------------------------------------------
-Ran 75 tests in 2.943s
+Ran 76 tests in 3.480s
 
 OK
