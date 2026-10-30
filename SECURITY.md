@@ -6,7 +6,7 @@ The operator and OS root are trusted. The hub and its MCP bearer have broad auth
 
 ## Boundaries
 
-Dedicated non-login user; no SSH keys or host filesystem mounts. Rootless daemonless Podman, private user/network/PID/mount namespaces, readonly root, no extra image volumes, no privilege escalation, only namespace-local NET_ADMIN/NET_RAW and TUN device. A local immutable image ID is used after installation. The first build trusts the upstream Python image tag and apt repository; it is not a reproducible/signed supply-chain attestation.
+Dedicated non-login user; no SSH keys or secret-bearing host filesystem mounts; the only bind is the readonly non-secret capsule code directory. Rootless daemonless Podman, private user/network/PID/mount namespaces, readonly root, no extra image volumes, no privilege escalation, only namespace-local NET_ADMIN/NET_RAW and TUN device. A local immutable image ID is used after installation. The first build trusts the upstream Python image tag and apt repository; it is not a reproducible/signed supply-chain attestation.
 
 Capsule cgroups plus the enclosing dedicated user slice bound CPU, memory, swap and processes. The enclosing slice includes user-mode networking and helper processes. `/work`, `/tmp`, `/run` and shared memory are bounded temporary storage. Container logs are disabled; runner logs/history and hub queues/history are bounded. Payloads/results and commands are temporarily stored in the hub database; this is not a secret store. No production file or service access is exposed as an MCP operation.
 
@@ -34,7 +34,7 @@ Credentials have no automatic scheduled rotation/revocation UI in this preview. 
 
 ## Validation still required
 
-Unit/protocol tests do not validate the running Linux isolation boundary. Verify on disposable Ubuntu 24.04 machines: namespace differences, TUN, rootless cgroups, account quotas including slirp, deny host/private/IPv6 egress, peer port allowlist, no host mounts, pause/offline/agent crash cleanup, reboot ordering, bounded memory/disk/logs and actual client tool discovery. Do not deploy on a production host as though these tests have already passed.
+Unit/protocol tests do not validate the running Linux isolation boundary. Verify on disposable Ubuntu 24.04 machines: namespace differences, TUN, rootless cgroups, account quotas including slirp, deny host/private/IPv6 egress, peer port allowlist, no host data/secret mounts, pause/offline/agent crash cleanup, reboot ordering, bounded memory/disk/logs and actual client tool discovery. Do not deploy on a production host as though these tests have already passed.
 
 ## Update boundary
 

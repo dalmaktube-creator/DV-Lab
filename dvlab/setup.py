@@ -78,6 +78,10 @@ def files():
         for p in dst.rglob('*'):
             p.chmod(0o755 if p.is_dir() else 0o644)
         dst.chmod(0o755);current.symlink_to(dst)
+    marker=SOURCE/'.source-commit'
+    installed=(current.resolve()/'.source-commit').read_text().strip()
+    if marker.exists() and marker.read_text().strip()!=installed:
+        raise SystemExit('Existing role is on another commit. Update it first before adding this role.')
     # Root console/guard are pinned at first install. Auto-update NEVER replaces them.
     pinned=Path('/usr/local/lib/dv-lab');pinned.mkdir(mode=0o755,parents=True,exist_ok=True)
     operator=pinned/'operator'
@@ -104,7 +108,7 @@ Type=oneshot
 ExecStart=/usr/bin/python3 -I /usr/local/lib/dv-lab/update_guard.py --worker
 UMask=0077
 CPUQuota=20%
-MemoryMax=256M
+MemoryMax=128M
 MemorySwapMax=0
 TasksMax=64
 PrivateTmp=yes
