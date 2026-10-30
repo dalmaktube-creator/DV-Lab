@@ -29,13 +29,13 @@ def call(name,args):
     assert not reply['isError'],reply
     return json.loads(reply['content'][0]['text'])
 
-def action(name,args):
+def action(name,args,*,envelope=False):
     queued=call(name,args)
     for _ in range(120):
         result=call('lab_action',dict(action=queued['action']))
         if result['state']=='done':
             assert result['result']['ok'],result
-            return result['result']['result']
+            return result['result'] if envelope else result['result']['result']
         assert result['state'] not in ('expired','cancelled'),result
         time.sleep(.25)
     raise AssertionError('Node action timed out')
@@ -51,7 +51,7 @@ time.sleep(.5)
 logs=action('lab_logs',dict(node=node,process=process));assert 'dv-lab-e2e' in logs['output'],logs
 state=action('lab_resources',dict(node=node,action='status'))
 changed=action('lab_resources',dict(node=node,action='set',revision=state['revision'],account_cpus=.75,account_memory_mib=320,capsule_cpus=.65,capsule_memory_mib=256))
-metrics=action('lab_metrics',dict(node=node));assert metrics['cgroup']['memory.max'].strip()==str(256*1048576),metrics
+metrics=action('lab_metrics',dict(node=node),envelope=True);assert metrics['result']['cgroup']['memory.max'].strip()==str(256*1048576),metrics
 assert metrics['lab_account']['memory.max'].strip()==str(320*1048576),metrics
 state=action('lab_resources',dict(node=node,action='set',revision=changed['revision'],account_cpus=.5,account_memory_mib=192,capsule_cpus=.4,capsule_memory_mib=128))
 assert state['current']['account_memory_mib']==192,state
