@@ -82,3 +82,32 @@ with urllib.request.urlopen(origin+'/health',timeout=3) as r:assert r.status==20
 print('PASS: pinned TLS helper rotated a real keypair generation, restarted only the hub and verified live HTTPS health')
 print('PASS: TLS managed certificate reuse, real trust/key/hostname validation, atomic deployment and active renewal timer; external CA requests mocked')
 print('PASS: Ubuntu 22.04 real hub install, trusted TLS, authenticated MCP tools, pinned socket update status, console command, cgroup quotas and private-key permissions')
+
+# Actual controlling TTY after root -> hub privilege drop. No tokens are revealed.
+import fcntl,pty,select,signal,termios
+master,slave=pty.openpty()
+def controlling_tty():
+    os.setsid();fcntl.ioctl(slave,termios.TIOCSCTTY,0)
+process=subprocess.Popen(['/usr/local/bin/dv-lab'],stdin=slave,stdout=slave,stderr=slave,pass_fds=(slave,),preexec_fn=controlling_tty)
+os.close(slave);output=b'';step=0;deadline=time.monotonic()+15
+try:
+    while time.monotonic()<deadline:
+        if not select.select([master],[],[],.2)[0]:
+            if process.poll() is not None:break
+            continue
+        try:data=os.read(master,8192)
+        except OSError:break
+        output+=data
+        assert len(output)<32768,'Console output bound'
+        if step==0 and b'Choose [0]' in output:os.write(master,b'1\n');step=1
+        elif step==1 and b'Press Enter to return to menu' in output:
+            assert output.count(b'CONTROL CENTER')==1,'Menu redrew before Enter'
+            os.write(master,b'\n');step=2
+        elif step==2 and output.count(b'CONTROL CENTER')==2 and output.count(b'Choose [0]')>=2:
+            os.write(master,b'0\n');step=3
+    process.wait(timeout=3)
+    assert process.returncode==0 and step==3,output.decode(errors='replace')[-3000:]
+finally:
+    if process.poll() is None:process.kill();process.wait()
+    os.close(master)
+print('PASS: real privilege-dropped operator console, controlling TTY, results held until Enter and clean return to menu')

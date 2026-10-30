@@ -7,11 +7,15 @@ import shlex
 import subprocess
 import sys
 
-from .agent import Client
+from .agent import Client, host_environment
 from .setup import prompt, userrun
 from .updating import broker
+from .install_ui import color
+from . import __version__
+import shutil
 
-C='\033[36m';G='\033[32m';Y='\033[33m';D='\033[2m';R='\033[0m'
+_ansi=sys.stdout.isatty() and 'NO_COLOR' not in os.environ and os.environ.get('TERM')!='dumb'
+C='\033[36m' if _ansi else '';G='\033[32m' if _ansi else '';Y='\033[33m' if _ansi else '';D='\033[2m' if _ansi else '';R='\033[0m' if _ansi else ''
 ETC=Path('/etc/dv-lab')
 
 
@@ -31,16 +35,34 @@ def nodes():
     return rows
 
 
+def boxed_value(label,value):
+    width=max(28,min(76,shutil.get_terminal_size((80,24)).columns-2))
+    title='─ '+label+' '
+    print(color('┌'+title+'─'*max(0,width-len(title)-2)+'┐','blue',sys.stdout))
+    # One actual line with no decorative prefix/suffix: terminal soft wrapping
+    # must not insert hard newlines into a URL or copyable shell command.
+    print(color(value,'blue',sys.stdout))
+    print(color('└'+'─'*(width-2)+'┘','blue',sys.stdout))
+
+
+def wait_return():
+    print()
+    prompt('Press Enter to return to menu')
+
+
 def invite():
     result=api('/admin/invite');cfg=load('hub')
     url=cfg['public_url']+'/bootstrap.sh'
-    print(G+'One-use join code — valid 10 minutes, enter only in node installer:'+R)
-    print(result['code'])
-    print('\nRun on the target server (script downloaded for inspection; no secret in URL):')
-    print('curl -fL --proto "=https" --proto-redir "=https" '+shlex.quote(url)+' -o /tmp/dv-lab-bootstrap.sh')
-    print('less /tmp/dv-lab-bootstrap.sh')
-    print('sudo bash /tmp/dv-lab-bootstrap.sh')
-    print(Y+'Bootstrap trusts the mother HTTPS endpoint. Never paste join/MCP tokens into chat.'+R)
+    print()
+    boxed_value('BOOTSTRAP URL',url)
+    print()
+    boxed_value('JOIN CODE · one use · 10 minutes',result['code'])
+    print('Enter this code in the hidden node prompt only.')
+    print('On the node, copy this complete command:')
+    command='curl -fsSL --proto "=https" --proto-redir "=https" '+shlex.quote(url)+' | sudo bash'
+    print(color(command,'ok',sys.stdout))
+    print(D+'URL has no secret. Review script first if needed.'+R)
+    print(D+'Node -> mother: HTTPS; no node domain needed.'+R)
 
 
 def set_pause(all_nodes=False,paused=True):
@@ -57,22 +79,31 @@ def set_pause(all_nodes=False,paused=True):
     print(Y+'Requested. Applied on agent heartbeat, not a synchronous stop confirmation.'+R)
 
 
+def local_run(args,**kw):
+    who=pwd.getpwnam('dvlab-node')
+    if os.geteuid()==0:return userrun(who,args,**kw)
+    if os.geteuid()!=who.pw_uid:raise ValueError('Use sudo dv-lab --node for local node operations')
+    kw.setdefault('check',True)
+    return subprocess.run(args,env=host_environment(),**kw)
+
+
 def local_status():
     cfg=load('agent');who=pwd.getpwnam('dvlab-node')
     print(json.dumps({k:v for k,v in cfg.items() if k not in ('token','image')},indent=2))
-    userrun(who,['systemctl','--user','status','dv-lab-agent.service','--no-pager'],check=False)
+    local_run(['systemctl','--user','status','dv-lab-agent.service','--no-pager'],check=False)
 
 
 def local_stop():
     if prompt('Type STOP to stop only the local DV Lab node')!='STOP':return
     who=pwd.getpwnam('dvlab-node')
-    userrun(who,['systemctl','--user','stop','dv-lab-agent.service'])
-    userrun(who,['python3','-m','dvlab.agent','--stop'])
+    local_run(['systemctl','--user','stop','dv-lab-agent.service'])
+    local_run(['python3','-m','dvlab.agent','--stop'])
     print(G+'Local node service stopped and owned capsule removed. No production service touched.'+R)
 
 
 def main():
-    if os.geteuid()!=0:raise SystemExit('Use sudo dv-lab (operator console; secrets are local only)')
+    if os.geteuid()==0:raise SystemExit('Use sudo dv-lab with the privilege-dropping launcher (console-upgrade for legacy installs).')
+    if pwd.getpwuid(os.geteuid()).pw_name not in ('dvlab-hub','dvlab-node'):raise SystemExit('Dedicated DV Lab account required; use sudo dv-lab')
     if len(sys.argv)>1 and sys.argv[1]=='--emergency-stop':local_stop();return
     if len(sys.argv)>1 and sys.argv[1]=='update':
         action=sys.argv[2] if len(sys.argv)>2 else 'check'
@@ -80,11 +111,10 @@ def main():
         if len(sys.argv)>3:args['commit']=sys.argv[3]
         print(json.dumps(broker(args),indent=2));return
     while True:
-        hub=(ETC/'hub.json').exists();node=(ETC/'agent.json').exists()
-        print('\n'+C+'╭──────────────────────────────────────────────────╮')
-        print('│  DV LAB   /   CONTROL CENTER             preview │')
-        print('╰──────────────────────────────────────────────────╯'+R)
-        print(D+'  REAL NETWORK · BOUNDED RESOURCES · NO HOST SHELL'+R)
+        hub=(ETC/'hub.json').exists() and os.access(ETC/'hub.json',os.R_OK);node=(ETC/'agent.json').exists() and os.access(ETC/'agent.json',os.R_OK)
+        print()
+        boxed_value('DV LAB / CONTROL CENTER',__version__)
+        print(D+'  BOUNDED LAB · NO HOST SHELL'+R)
         if hub:print('  1  Nodes & health\n  2  Bootstrap / one-use invite\n  3  MCP connection\n  4  Pause node\n  5  Resume node\n  6  Emergency pause ALL labs')
         if node:print('  7  Local node status\n  8  Stop local lab NOW\n  9  Restart local node service')
         print('  U  Update this machine\n  S  Update status\n  R  Roll back application\n  0  Exit')
@@ -103,7 +133,7 @@ def main():
             elif choice=='1' and hub:nodes()
             elif choice=='2' and hub:invite()
             elif choice=='3' and hub:
-                cfg=load('hub');print('Streamable HTTP endpoint: '+cfg['public_url']+'/mcp')
+                cfg=load('hub');boxed_value('MCP URL · Streamable HTTP',cfg['public_url']+'/mcp')
                 print('Authorization: Bearer token. Enter in your MCP client secure connection form.')
                 if prompt('Reveal MCP token locally? type SHOW')=='SHOW':print(cfg['mcp_token'])
             elif choice=='4' and hub:set_pause()
@@ -111,8 +141,9 @@ def main():
             elif choice=='6' and hub:set_pause(all_nodes=True)
             elif choice=='7' and node:local_status()
             elif choice=='8' and node:local_stop()
-            elif choice=='9' and node:userrun(pwd.getpwnam('dvlab-node'),['systemctl','--user','restart','dv-lab-agent.service'])
+            elif choice=='9' and node:local_run(['systemctl','--user','restart','dv-lab-agent.service'])
             else:print('Unknown option')
         except Exception as exc:print(Y+type(exc).__name__+': '+str(exc)[:200]+R)
+        wait_return()
 
 if __name__=='__main__':main()

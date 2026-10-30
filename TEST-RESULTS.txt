@@ -34,6 +34,13 @@ test_small_terminal_wraps_and_color_does_not_hide_labels (test_install_ui.Instal
 test_tcp_port_check_does_not_reserve_udp (test_install_ui.InstallUI.test_tcp_port_check_does_not_reserve_udp) ... ok
 test_url_rejects_path_http_low_port_and_busy_port (test_install_ui.InstallUI.test_url_rejects_path_http_low_port_and_busy_port) ... ok
 test_valid_url_only_checks_tcp (test_install_ui.InstallUI.test_valid_url_only_checks_tcp) ... ok
+test_bootstrap_card_has_exact_copyable_url_and_no_code_in_url (test_menu.Menu.test_bootstrap_card_has_exact_copyable_url_and_no_code_in_url) ... ok
+test_errors_are_also_held_until_enter (test_menu.Menu.test_errors_are_also_held_until_enter) ... ok
+test_legacy_console_migration_requires_exact_installed_release (test_menu.Menu.test_legacy_console_migration_requires_exact_installed_release) ... ok
+test_mutable_menu_refuses_root_execution (test_menu.Menu.test_mutable_menu_refuses_root_execution) ... ok
+test_noninteractive_update_command_does_not_pause (test_menu.Menu.test_noninteractive_update_command_does_not_pause) ... ok
+test_result_is_followed_by_enter_before_menu_redraw (test_menu.Menu.test_result_is_followed_by_enter_before_menu_redraw) ... ok
+test_root_launcher_drops_identity_before_exec_and_clears_env (test_menu.Menu.test_root_launcher_drops_identity_before_exec_and_clears_env) ... ok
 test_agent_supports_jammy (test_platforms.Platforms.test_agent_supports_jammy) ... ok
 test_agent_supports_noble (test_platforms.Platforms.test_agent_supports_noble) ... ok
 test_hub_supports_jammy (test_platforms.Platforms.test_hub_supports_jammy) ... ok
@@ -88,6 +95,6 @@ test_validation (test_updates.Updates.test_validation) ... ok
 test_worker_rollback_on_failed_health (test_updates.Updates.test_worker_rollback_on_failed_health) ... ok
 
 ----------------------------------------------------------------------
-Ran 88 tests in 3.591s
+Ran 95 tests in 3.659s
 
 OK

@@ -60,3 +60,19 @@ jobs:
         run: /usr/bin/python3 -m unittest discover -s tests -v
       - name: Install real hub, TLS, MCP and pinned update broker on disposable Noble
         run: sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" GITHUB_SHA="$GITHUB_SHA" bash scripts/ci-hub22.sh
+
+  ubuntu-22-node-install:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Full node installation, TLS enrollment, MCP execution and remote resources
+        run: sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" GITHUB_SHA="$GITHUB_SHA" bash scripts/ci-node-install.sh
+
+  ubuntu-24-node-install:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Full node installation, TLS enrollment, MCP execution and remote resources
+        run: sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" GITHUB_SHA="$GITHUB_SHA" bash scripts/ci-node-install.sh

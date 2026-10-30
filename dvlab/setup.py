@@ -188,6 +188,42 @@ def preflight(role):
     if shutil.disk_usage('/var').free<1024**3:raise SystemExit('At least 1GiB free installation space required')
 
 
+def console_launcher(migration=False):
+    helper=Path('/usr/local/lib/dv-lab/console_launcher.py')
+    wrapper=Path('/usr/local/bin/dv-lab')
+    text='#!/bin/sh\nexec /usr/bin/python3 -I /usr/local/lib/dv-lab/console_launcher.py "$@"\n'
+    if wrapper.exists():
+        st=wrapper.stat()
+        if wrapper.is_symlink() or st.st_uid!=0 or st.st_mode&0o022:raise SystemExit('Unsafe existing console launcher')
+        old=wrapper.read_text()
+        if old!=text and 'cd /usr/local/lib/dv-lab/operator' not in old:raise SystemExit('Unknown existing console launcher; refusing replacement')
+        if migration and old!=text:
+            backup=helper.parent/'console-launcher.before-migration'
+            if not backup.exists():backup.write_text(old);backup.chmod(0o600)
+    helper.parent.mkdir(mode=0o755,parents=True,exist_ok=True)
+    source=(SOURCE/'dvlab/console_launcher.py').read_bytes()
+    if helper.exists() and helper.read_bytes()!=source:raise SystemExit('Pinned console launcher differs; operator review required')
+    if not helper.exists():helper.write_bytes(source);helper.chmod(0o644)
+    temporary=wrapper.with_name('.dv-lab-console-next')
+    if temporary.exists():raise SystemExit('Pending launcher migration exists; inspect before retrying')
+    fd=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o755)
+    try:
+        with os.fdopen(fd,'w') as f:f.write(text);f.flush();os.fsync(f.fileno());os.fchmod(f.fileno(),0o755)
+        os.replace(temporary,wrapper)
+    finally:temporary.unlink(missing_ok=True)
+
+
+def migrate_console():
+    if os.geteuid()!=0:raise SystemExit('Run console-upgrade with sudo')
+    marker=SOURCE/'.source-commit';current=ROOT/'current/.source-commit'
+    if not marker.is_file() or not current.is_file() or marker.read_text().strip()!=current.read_text().strip():
+        raise SystemExit('First update the application to this exact release, then run console-upgrade.')
+    if not (ETC/'hub.json').is_file() and not (ETC/'agent.json').is_file():raise SystemExit('Install a DV Lab role first')
+    console_launcher(migration=True)
+    CONSOLE.ok('Console migrated: fixed launcher drops privileges before loading the updateable UI.')
+    CONSOLE.hint('No service restart, quota, token, TLS or firewall change. Next: sudo dv-lab')
+
+
 def files():
     """Install root policy once; versioned service code is separate from operator code."""
     from . import update_guard
@@ -217,9 +253,7 @@ def files():
         for p in operator.rglob('*'):p.chmod(0o755 if p.is_dir() else 0o644)
     guard=pinned/'update_guard.py'
     if not guard.exists():shutil.copyfile(SOURCE/'dvlab/update_guard.py',guard);guard.chmod(0o644)
-    wrapper=Path('/usr/local/bin/dv-lab')
-    if wrapper.exists() and 'python3 -m dvlab.menu' not in wrapper.read_text():raise SystemExit('Unmanaged launcher')
-    wrapper.write_text('#!/bin/sh\ncd /usr/local/lib/dv-lab/operator\nexec /usr/bin/python3 -m dvlab.menu "$@"\n');wrapper.chmod(0o755)
+    console_launcher()
     entry=Path('/usr/local/sbin/dv-lab-update')
     if not entry.exists():
         entry.write_text('#!/bin/sh\nexec /usr/bin/python3 -I /usr/local/lib/dv-lab/update_guard.py "$@"\n');entry.chmod(0o755)
@@ -583,6 +617,7 @@ WantedBy=default.target
 
 
 def main():
+    if sys.argv[1:]==['console-upgrade']:migrate_console();return
     if len(sys.argv)<2:
         CONSOLE.banner('Choose role',__version__)
         role=ask('Role',validate_role,'hub',hint='hub = mother  ·  agent = isolated test node')
