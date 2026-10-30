@@ -1,6 +1,6 @@
 # DV Lab
 
-**0.2.0-preview.5 — isolated multi-server test lab with an MCP controller.**
+**0.2.0-preview.6 — isolated multi-server test lab with an MCP controller.**
 
 [راهنمای فارسی](README.fa.md) · [Updates](UPDATE.md) · [Security boundaries](SECURITY.md) · [Acceptance checklist](CHECKLIST.md)
 
@@ -57,10 +57,20 @@ python3 -m compileall -q dvlab scripts
 bash -n install.sh scripts/ci-isolation.sh
 ```
 
-59 local regression tests passed at publication preparation. GitHub CI is configured to repeat those tests and run rootless Podman/TUN/cgroup/nft smoke on a disposable Ubuntu runner. **A configured workflow is not evidence it passed**; consult the actual Actions run. Multi-server throughput, target-host overhead, reboot/fault acceptance and deployment remain separate validation tasks. The CI helper refuses execution outside GitHub Actions and must never be run on production.
+75 local regression tests passed at publication preparation. GitHub CI is configured to repeat those tests and run rootless Podman/TUN/cgroup/nft smoke on a disposable Ubuntu runner. **A configured workflow is not evidence it passed**; consult the actual Actions run. Multi-server throughput, target-host overhead, reboot/fault acceptance and deployment remain separate validation tasks. The CI helper refuses execution outside GitHub Actions and must never be run on production.
 
 Ubuntu 22.04 support is **hub-only**: the `ubuntu-22-hub` CI job performs a real installation on a disposable Jammy VM, then checks TLS/MCP, the console, the narrow local-socket update broker and service quotas. It is not a claim that Jammy rootless agents were validated; their installer still fails closed.
 
 ### Installer interface
 
 Separate bare-domain and HTTPS-port questions automatically build the secure URL (no scheme or www prefix to type). Compact color-coded stages, short examples, a review before changes, and recoverable URL/port/PEM input errors. Occupied ports never trigger stopping another service. Detailed command output goes to a private root-owned install log instead of flooding the terminal; a failure shows its log path. NO_COLOR and non-TTY output remain plain. Stages are real milestones, not fabricated percentage progress. Public/firewall reachability is explicitly not inferred from a local port check.
+
+### Automatic TLS lifecycle
+
+The installer discovers matching managed Certbot lineages in `/etc/letsencrypt/live` or DV Lab’s isolated `/etc/dv-lab/acme`, checks trusted chain/hostname/key/expiry, and proves renewal with a staging dry run before reuse. It never force-renews a healthy certificate daily, invokes existing stop hooks/webserver installers, or rewrites another application's renewal configuration. Unsafe or non-Certbot-managed certificates are not adopted blindly.
+
+If no suitable managed lineage exists, standalone HTTP-01 is tested against staging before production issuance. **Public DNS must point here and inbound TCP 80 must be free and reachable, independently of the MCP HTTPS port.** No service is stopped and no firewall is changed. A busy port is an explicit blocker; new DNS-provider challenge setup is not implemented. Existing safe webroot/DNS renewal configurations can be reused. INSTALL confirms Let’s Encrypt terms; the ACME account is registered without email.
+
+A root-pinned single-lineage renewal helper runs twice daily via `dv-lab-tls-renew.timer` (random delay, no idle daemon). A renewed pair is validated and copied root:hub 640 into an atomic generation; only a changed pair restarts the hub, followed by local HTTPS/SNI health verification and rollback on failure. The current and previous generations are retained. Scheduling and a successful staging test are checked, not a promise that future DNS/firewall/credentials cannot break. Inspect failures with `journalctl -u dv-lab-tls-renew.service`.
+
+CI uses a real locally trusted certificate, real atomic deployment/service restart/live HTTPS checks, and an explicitly mocked external ACME request. It does not issue a live public certificate for a domain we do not control.

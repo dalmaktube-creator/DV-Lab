@@ -19,6 +19,7 @@ from .common import atomic_json, identifier, origin, token
 from .agent import Client
 from . import __version__
 from .install_ui import Console, color
+from .tls_manager import Manager as TLSManager, install as install_tls
 
 ROOT=Path('/opt/dv-lab')
 ETC=Path('/etc/dv-lab')
@@ -345,19 +346,20 @@ def hub():
     CONSOLE.stage(2,5,'Connection & TLS')
     url=hub_address()
     parsed=urlsplit(url);port=parsed.port or 443
-    cert,key=tls_files();CONSOLE.ok('PEM pair loaded.')
+    tls_manager=TLSManager(run,CONSOLE)
+    tls_plan=tls_manager.inspect(parsed.hostname)
     CONSOLE.stage(3,5,'Review & approve')
     CONSOLE.summary([('Role','Mother'),('Address',url),('Service budget','0.25 CPU / 256 MiB')])
-    confirm('Creates a dedicated hub account and bounded services.\nUpdates trust approved commits of this repo; root policy stays pinned.\nExisting SSH, proxy and firewall rules are not changed.')
+    confirm('Creates a dedicated hub account and bounded services.\nTLS: reuse + renewal test, or automatic Let’s Encrypt issuance.\nINSTALL also accepts Let’s Encrypt terms: letsencrypt.org/repository/\nACME account has no email; a twice-daily renewal timer is installed.\nExisting SSH, proxy and firewall rules are not changed.')
     CONSOLE.installing=True;CONSOLE.stage(4,5,'Install & configure')
     CONSOLE.hint('Installing dependencies. Details go to a private local log.')
-    run(['apt-get','update']);run(['apt-get','install','-y','--no-install-recommends','sudo','ca-certificates'])
+    run(['apt-get','update']);run(['apt-get','install','-y','--no-install-recommends','sudo','ca-certificates','openssl','certbot'])
     CONSOLE.ok('Dependencies ready.')
+    cert,key=tls_manager.ensure(tls_plan)
     files();who=account('dvlab-hub');grant_update(who)
     state=Path('/var/lib/dv-lab-hub');state.mkdir(mode=0o700);os.chown(state,who.pw_uid,who.pw_gid)
-    tls=ETC/'tls';tls.mkdir(mode=0o750);os.chown(tls,0,who.pw_gid)
-    for src,name in ((cert,'fullchain.pem'),(key,'privkey.pem')):
-        dst=tls/name;shutil.copyfile(src,dst);os.chown(dst,0,who.pw_gid);dst.chmod(0o640)
+    install_tls(tls_plan,run)
+    tls=ETC/'tls/current'
     package=ROOT/'current/dv-lab.tar.gz';bundle(package)
     cfg=dict(public_url=url,port=port,database=str(state/'hub.sqlite3'),bundle=str(package),
              cert=str(tls/'fullchain.pem'),key=str(tls/'privkey.pem'),admin_token=token(),mcp_token=token())
@@ -394,10 +396,14 @@ WantedBy=multi-user.target
     CONSOLE.ok('Account, TLS files and bounded services configured.')
     CONSOLE.stage(5,5,'Start service')
     run(['systemctl','daemon-reload']);run(['systemctl','enable','--now','dv-lab-hub.service'])
+    run(['systemctl','enable','--now','dv-lab-tls-renew.timer'])
+    run(['systemctl','is-enabled','--quiet','dv-lab-tls-renew.timer'])
+    run(['systemctl','is-active','--quiet','dv-lab-tls-renew.timer'])
     run(['systemctl','is-active','--quiet','dv-lab-hub.service'])
     CONSOLE.ok('Mother service started.')
     CONSOLE.line('Next: sudo dv-lab','title')
-    CONSOLE.hint('Public access is not verified. TLS renewal remains operator-managed.')
+    CONSOLE.ok('Automatic TLS renewal timer is enabled and active.')
+    CONSOLE.hint('Public MCP-port access is not verified; keep challenge access available.')
 
 
 def userrun(who,args,**kw):
@@ -550,7 +556,7 @@ def entrypoint():
     except subprocess.CalledProcessError as exc:
         CONSOLE.error('Command failed: '+str(exc.cmd[0])+'. No automatic destructive retry was attempted.')
     except (ValueError,OSError,RuntimeError) as exc:
-        CONSOLE.error(str(exc)[:220])
+        CONSOLE.error(str(exc)[:600])
     if CONSOLE.log_path:CONSOLE.hint('Private log: '+str(CONSOLE.log_path))
     if CONSOLE.installing:CONSOLE.hint('Installation may be partial; inspect before retrying.')
     return 1

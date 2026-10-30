@@ -11,14 +11,23 @@ import urllib.request
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from dvlab import setup
 from dvlab.agent import Client
+from dvlab import tls_manager
+from unittest.mock import patch
 
 if os.environ.get('GITHUB_ACTIONS')!='true' or os.geteuid()!=0:raise SystemExit('Disposable root CI only')
 origin='https://localhost:18443'
-answers=iter(('localhost','18443',sys.argv[1],sys.argv[2]))
+answers=iter(('localhost','18443'))
+lineage=tls_manager.OWN/'live/ci-fixture'
+lineage.mkdir(parents=True)
+(lineage/'fullchain.pem').symlink_to(sys.argv[1])
+(lineage/'privkey.pem').symlink_to(sys.argv[2])
+renewal=tls_manager.OWN/'renewal';renewal.mkdir()
+(renewal/'ci-fixture.conf').write_text('[renewalparams]\nauthenticator = webroot\n')
 setup.prompt=lambda *args,**kwargs:next(answers)
 setup.confirm=lambda text:print('CI operator-approved install: hub only; no production server involved')
 try:
-    setup.hub()  # Actual packages, account, files, TLS copy and systemd unit.
+    with patch.object(tls_manager.Manager,'acme',lambda self,args,message: print('CI: external ACME request mocked; real certificate validation/deployment retained')):
+        setup.hub()  # Actual packages, account, TLS validation/deploy, services and timer.
 except Exception:
     if setup.CONSOLE.log_path:
         print('CI private install log tail:')
@@ -55,5 +64,21 @@ quota,period=(path/'cpu.max').read_text().split();assert quota!='max' and int(qu
 assert int((path/'memory.max').read_text())<=256*1048576
 assert (path/'memory.swap.max').read_text().strip()=='0'
 # Key inaccessible to an unrelated unprivileged account.
-p=subprocess.run(['runuser','-u','nobody','--','test','-r','/etc/dv-lab/tls/privkey.pem']);assert p.returncode!=0
+p=subprocess.run(['runuser','-u','nobody','--','test','-r','/etc/dv-lab/tls/current/privkey.pem']);assert p.returncode!=0
+assert subprocess.run(['systemctl','is-enabled','--quiet','dv-lab-tls-renew.timer']).returncode==0
+assert subprocess.run(['systemctl','is-active','--quiet','dv-lab-tls-renew.timer']).returncode==0
+assert Path('/usr/local/lib/dv-lab/tls_manager.py').stat().st_uid==0
+assert not (Path('/usr/local/lib/dv-lab/tls_manager.py').stat().st_mode & 0o022)
+assert json.loads(tls_manager.POLICY.read_text())['name']=='ci-fixture'
+# Exercise the actual pinned deployment helper against the running TLS service.
+import importlib.util
+spec=importlib.util.spec_from_file_location('pinned_tls','/usr/local/lib/dv-lab/tls_manager.py')
+pinned_tls=importlib.util.module_from_spec(spec);spec.loader.exec_module(pinned_tls)
+plan=json.loads(tls_manager.POLICY.read_text());source_cert=Path(sys.argv[1])
+old=os.readlink('/etc/dv-lab/tls/current');source_cert.write_bytes(source_cert.read_bytes()+b'\n')
+assert pinned_tls.deploy(plan) is True
+assert os.readlink('/etc/dv-lab/tls/current')!=old
+with urllib.request.urlopen(origin+'/health',timeout=3) as r:assert r.status==200
+print('PASS: pinned TLS helper rotated a real keypair generation, restarted only the hub and verified live HTTPS health')
+print('PASS: TLS managed certificate reuse, real trust/key/hostname validation, atomic deployment and active renewal timer; external CA requests mocked')
 print('PASS: Ubuntu 22.04 real hub install, trusted TLS, authenticated MCP tools, pinned socket update status, console command, cgroup quotas and private-key permissions')

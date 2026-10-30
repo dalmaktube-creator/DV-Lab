@@ -31,7 +31,7 @@ STATE=Path('/var/lib/dv-lab-updater')
 ROOT=Path('/opt/dv-lab')
 MAX_ARCHIVE=2_000_000
 ALLOW_ROOT={'Containerfile','install.sh','README.md','README.fa.md','SECURITY.md','UPDATE.md','release.json','.source-commit'}
-APP_REQUIRED={'install_ui.py','updating.py','__init__.py','common.py','hub.py','agent.py','runner.py','sampling.py','menu.py','setup.py'}
+APP_REQUIRED={'tls_manager.py','install_ui.py','updating.py','__init__.py','common.py','hub.py','agent.py','runner.py','sampling.py','menu.py','setup.py'}
 CAPSULE=('__init__.py','common.py','runner.py','sampling.py')
 SHA=re.compile(r'[0-9a-f]{40}')
 

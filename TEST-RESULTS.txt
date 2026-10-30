@@ -43,6 +43,22 @@ test_default_role_with_pipe_stdin (test_terminal.TerminalPrompts.test_default_ro
 test_hidden_input_is_not_echoed (test_terminal.TerminalPrompts.test_hidden_input_is_not_echoed) ... ok
 test_no_controlling_terminal_has_friendly_error (test_terminal.TerminalPrompts.test_no_controlling_terminal_has_friendly_error) ... ok
 test_typed_role_with_pipe_stdin (test_terminal.TerminalPrompts.test_typed_role_with_pipe_stdin) ... ok
+test_atomic_deploy_key_permissions_and_no_repeat_restart (test_tls_manager.TLS.test_atomic_deploy_key_permissions_and_no_repeat_restart) ... ok
+test_bad_pair_never_changes_live_symlink (test_tls_manager.TLS.test_bad_pair_never_changes_live_symlink) ... ok
+test_discovery_rejects_wrong_hostname (test_tls_manager.TLS.test_discovery_rejects_wrong_hostname) ... ok
+test_existing_managed_matching_certificate_is_discovered (test_tls_manager.TLS.test_existing_managed_matching_certificate_is_discovered) ... ok
+test_existing_stop_hooks_and_webserver_installers_are_not_run (test_tls_manager.TLS.test_existing_stop_hooks_and_webserver_installers_are_not_run) ... ok
+test_existing_valid_cert_uses_dryrun_and_due_only_renewal (test_tls_manager.TLS.test_existing_valid_cert_uses_dryrun_and_due_only_renewal) ... ok
+test_failed_existing_renewal_never_requests_duplicate_production_cert (test_tls_manager.TLS.test_failed_existing_renewal_never_requests_duplicate_production_cert) ... ok
+test_failed_restart_rolls_back_atomic_pair (test_tls_manager.TLS.test_failed_restart_rolls_back_atomic_pair) ... ok
+test_failed_tls_health_check_restores_previous_pair (test_tls_manager.TLS.test_failed_tls_health_check_restores_previous_pair) ... ok
+test_manual_renewal_without_automation_is_not_claimed_safe (test_tls_manager.TLS.test_manual_renewal_without_automation_is_not_claimed_safe) ... ok
+test_new_issue_staging_then_production_and_validates_pair (test_tls_manager.TLS.test_new_issue_staging_then_production_and_validates_pair) ... ok
+test_occupied_http_port_never_stops_a_service_or_calls_ca (test_tls_manager.TLS.test_occupied_http_port_never_stops_a_service_or_calls_ca) ... ok
+test_public_dns_rejects_private_and_missing_records (test_tls_manager.TLS.test_public_dns_rejects_private_and_missing_records) ... ok
+test_real_certificate_chain_hostname_expiry_and_key_checks (test_tls_manager.TLS.test_real_certificate_chain_hostname_expiry_and_key_checks) ... ok
+test_staging_failure_prevents_production_issuance (test_tls_manager.TLS.test_staging_failure_prevents_production_issuance) ... ok
+test_unapproved_paths_and_lineage_names_are_rejected (test_tls_manager.TLS.test_unapproved_paths_and_lineage_names_are_rejected) ... ok
 test_account_helpers_do_not_inherit_operator_configuration (test_updates.AccountEnvironment.test_account_helpers_do_not_inherit_operator_configuration) ... ok
 test_podman_environment_uses_actual_uid_not_manager_environment (test_updates.AccountEnvironment.test_podman_environment_uses_actual_uid_not_manager_environment) ... ok
 test_kernel_peer_uid_must_be_approved (test_updates.SocketUpdateTransport.test_kernel_peer_uid_must_be_approved) ... ok
@@ -59,6 +75,6 @@ test_validation (test_updates.Updates.test_validation) ... ok
 test_worker_rollback_on_failed_health (test_updates.Updates.test_worker_rollback_on_failed_health) ... ok
 
 ----------------------------------------------------------------------
-Ran 59 tests in 2.564s
+Ran 75 tests in 2.943s
 
 OK
