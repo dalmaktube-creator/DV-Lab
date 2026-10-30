@@ -1,0 +1,36 @@
+test_bundle_has_no_self_archive_or_cache (test_dvlab.AdditionalTests.test_bundle_has_no_self_archive_or_cache) ... ok
+test_real_tls_and_verification (test_dvlab.AdditionalTests.test_real_tls_and_verification) ... ok
+test_sampling_cpu_normalization (test_dvlab.AdditionalTests.test_sampling_cpu_normalization) ... ok
+test_account_fail_closed (test_dvlab.Core.test_account_fail_closed) ... ok
+test_capsule_argv (test_dvlab.Core.test_capsule_argv) ... ok
+test_capsule_identity (test_dvlab.Core.test_capsule_identity) ... ok
+test_netpolicy (test_dvlab.Core.test_netpolicy) ... ok
+test_operation_validation (test_dvlab.Core.test_operation_validation) ... ok
+test_origin (test_dvlab.Core.test_origin) ... ok
+test_auth_separation (test_dvlab.HubTests.test_auth_separation) ... ok
+test_bootstrap_no_secrets (test_dvlab.HubTests.test_bootstrap_no_secrets) ... ok
+test_http_protocol (test_dvlab.HubTests.test_http_protocol) ... ok
+test_invitation_once_expiry (test_dvlab.HubTests.test_invitation_once_expiry) ... ok
+test_pause_and_offline (test_dvlab.HubTests.test_pause_and_offline) ... ok
+test_queue_lease_scoped_and_never_replayed (test_dvlab.HubTests.test_queue_lease_scoped_and_never_replayed) ... ok
+test_rpc_schema_and_bounds (test_dvlab.HubTests.test_rpc_schema_and_bounds) ... ok
+test_files_and_chunks (test_dvlab.RunnerTests.test_files_and_chunks) ... ok
+test_job_deadline_and_logs (test_dvlab.RunnerTests.test_job_deadline_and_logs) ... ok
+test_kill_and_concurrency_limit (test_dvlab.RunnerTests.test_kill_and_concurrency_limit) ... ok
+test_log_ring (test_dvlab.RunnerTests.test_log_ring) ... ok
+test_no_symlink_or_fifo_read (test_dvlab.RunnerTests.test_no_symlink_or_fifo_read) ... ok
+test_bad_branch_ref_is_not_accepted (test_updates.Updates.test_bad_branch_ref_is_not_accepted) ... ok
+test_both_ci_checks_latest_must_pass (test_updates.Updates.test_both_ci_checks_latest_must_pass) ... ok
+test_git_blob_integrity (test_updates.Updates.test_git_blob_integrity) ... ok
+test_mcp_update_is_explicit_target (test_updates.Updates.test_mcp_update_is_explicit_target) ... ok
+test_no_downloaded_root_hooks (test_updates.Updates.test_no_downloaded_root_hooks) ... ok
+test_path_link_and_invalid_python (test_updates.Updates.test_path_link_and_invalid_python) ... ok
+test_policy_change_is_rejected (test_updates.Updates.test_policy_change_is_rejected) ... ok
+test_safe_unpack_and_permissions (test_updates.Updates.test_safe_unpack_and_permissions) ... ok
+test_validation (test_updates.Updates.test_validation) ... ok
+test_worker_rollback_on_failed_health (test_updates.Updates.test_worker_rollback_on_failed_health) ... ok
+
+----------------------------------------------------------------------
+Ran 31 tests in 2.508s
+
+OK
