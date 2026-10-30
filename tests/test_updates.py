@@ -41,6 +41,8 @@ class Updates(unittest.TestCase):
             p=Path(d)/'new'
             self.assertEqual((p/'.source-commit').read_text().strip(),SHA)
             self.assertEqual(p.stat().st_mode&0o777,0o755)
+            self.assertEqual((p/'.source-commit').stat().st_mode&0o777,0o644)
+            self.assertEqual((p/'capsule/dvlab/runner.py').stat().st_mode&0o777,0o644)
             self.assertEqual((p/'capsule/dvlab').stat().st_mode&0o777,0o755)
             self.assertTrue((p/'dv-lab.tar.gz').exists())
     def test_git_blob_integrity(self):

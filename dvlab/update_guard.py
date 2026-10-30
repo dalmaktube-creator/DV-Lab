@@ -117,9 +117,10 @@ def unpack(data,target,commit,tree=None):
     target.mkdir(mode=0o755)
     for rel,content in kept.items():
         dst=target/rel;dst.parent.mkdir(mode=0o755,parents=True,exist_ok=True);dst.write_bytes(content);dst.chmod(0o644)
-    (target/'.source-commit').write_text(commit+'\n')
+    (target/'.source-commit').write_text(commit+'\n');(target/'.source-commit').chmod(0o644)
     cap=target/'capsule/dvlab';cap.mkdir(parents=True,mode=0o755)
-    for name in CAPSULE:shutil.copyfile(target/'dvlab'/name,cap/name)
+    for name in CAPSULE:
+        shutil.copyfile(target/'dvlab'/name,cap/name);(cap/name).chmod(0o644)
     for p in target.rglob('*'):
         if p.is_dir():p.chmod(0o755)
     target.chmod(0o755)
