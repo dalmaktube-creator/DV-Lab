@@ -96,7 +96,7 @@ class HubTests(unittest.TestCase):
     def test_rpc_schema_and_bounds(self):
         r=self.h.rpc(dict(jsonrpc='2.0',id=1,method='initialize',params={'protocolVersion':'2025-03-26'}))
         self.assertEqual(r['result']['protocolVersion'],'2025-03-26')
-        self.assertEqual(len(tools()),12)
+        self.assertEqual(len(tools()),13)
         self.assertIsNone(self.h.rpc(dict(jsonrpc='2.0',method='notifications/initialized')))
         for t in tools():self.assertFalse(t['inputSchema']['additionalProperties'])
         self.assertIn('error',self.h.rpc(dict(jsonrpc='2.0',id=1,method='initialize',params=['bad'])))
@@ -112,7 +112,7 @@ class HubTests(unittest.TestCase):
             r=c.getresponse();body=r.read();status=r.status;c.close();return status,body
         try:
             self.assertEqual(request('POST','/mcp',{'jsonrpc':'2.0','id':1,'method':'tools/list'})[0],401)
-            st,b=request('POST','/mcp',{'jsonrpc':'2.0','id':1,'method':'tools/list'},'mcp-secret');self.assertEqual(st,200);self.assertEqual(len(json.loads(b)['result']['tools']),12)
+            st,b=request('POST','/mcp',{'jsonrpc':'2.0','id':1,'method':'tools/list'},'mcp-secret');self.assertEqual(st,200);self.assertEqual(len(json.loads(b)['result']['tools']),13)
             self.assertEqual(request('POST','/mcp',{'jsonrpc':'2.0','method':'notifications/initialized'},'mcp-secret'),(202,b''))
             self.assertEqual(request('GET','/mcp',bearer='mcp-secret')[0],405)
             self.assertEqual(request('POST','/mcp',{},'mcp-secret',{'Origin':'https://evil.example'})[0],403)

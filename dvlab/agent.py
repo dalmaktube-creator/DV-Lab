@@ -15,6 +15,8 @@ import urllib.request
 
 from .sampling import Sampler
 from .updating import broker, identity
+from .resources import broker as resource_broker
+from .resource_guard import FIELDS as RESOURCE_FIELDS
 
 from .common import MAX_BODY, atomic_json, origin, public_ip, validate_operation
 
@@ -66,7 +68,7 @@ class Capsule:
         with self.lock:
             item=self.inspect()
             if item is not None:
-                self.run(["podman","rm","--force","--time","0",item["Id"]],timeout=15)
+                self.run(["podman","rm","--force",item["Id"]],timeout=15)
             self.validated=False
 
     def sync_peers(self, peers):
@@ -219,6 +221,15 @@ class Agent:
         self.contact=time.monotonic()
         self.paused=False
         self.status="starting"
+    def resources(self,op):
+        if op['action']=='set':self.capsule.stop()
+        try:return {'ok':True,'result':resource_broker(op)}
+        finally:
+            cfg=json.loads(Path('/etc/dv-lab/agent.json').read_text())
+            self.cfg.update({k:cfg[k] for k in RESOURCE_FIELDS})
+            self.capsule.cfg=self.cfg
+            verify_account_limits(self.cfg)
+
     def watchdog(self):
         while not self.quit.wait(2):
             if time.monotonic()-self.contact>60 or time.monotonic()-self.capsule.last_use>600:
@@ -239,6 +250,7 @@ class Agent:
                         "port_count":self.cfg["port_count"],"account_cpus":self.cfg["account_cpus"],
                         "account_memory_mib":self.cfg["account_memory_mib"],
                         "capsule_memory_mib":self.cfg["capsule_memory_mib"],
+                        "capsule_cpus":self.cfg["capsule_cpus"],"resource_control":True,
                         "isolation":"rootless-readonly-ephemeral"}})
                     self.contact=time.monotonic()
                     atomic_json("/var/lib/dv-lab-node/heartbeat.json",dict(at=time.time(),**identity()))
@@ -254,7 +266,9 @@ class Agent:
                     if not action:continue
                     try:
                         op=validate_operation(action["operation"])
-                        result={"ok":True,"result":broker(op)} if op["op"]=="update" else self.capsule.operate(op)
+                        if op["op"]=="update":result={"ok":True,"result":broker(op)}
+                        elif op["op"]=="resources":result=self.resources(op)
+                        else:result=self.capsule.operate(op)
                     except Exception as exc:
                         result={"ok":False,"error":type(exc).__name__+": "+str(exc)[:160]}
                     # Retry only the same completion, NEVER replay its operation.

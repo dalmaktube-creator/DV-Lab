@@ -34,11 +34,23 @@ test_small_terminal_wraps_and_color_does_not_hide_labels (test_install_ui.Instal
 test_tcp_port_check_does_not_reserve_udp (test_install_ui.InstallUI.test_tcp_port_check_does_not_reserve_udp) ... ok
 test_url_rejects_path_http_low_port_and_busy_port (test_install_ui.InstallUI.test_url_rejects_path_http_low_port_and_busy_port) ... ok
 test_valid_url_only_checks_tcp (test_install_ui.InstallUI.test_valid_url_only_checks_tcp) ... ok
+test_agent_supports_jammy (test_platforms.Platforms.test_agent_supports_jammy) ... ok
 test_agent_supports_noble (test_platforms.Platforms.test_agent_supports_noble) ... ok
 test_hub_supports_jammy (test_platforms.Platforms.test_hub_supports_jammy) ... ok
 test_hub_supports_noble (test_platforms.Platforms.test_hub_supports_noble) ... ok
-test_jammy_agent_is_still_rejected (test_platforms.Platforms.test_jammy_agent_is_still_rejected) ... ok
 test_unknown_distro_or_role_is_rejected (test_platforms.Platforms.test_unknown_distro_or_role_is_rejected) ... ok
+test_actual_memory_usage_prevents_unsafe_shrink (test_resources.Resources.test_actual_memory_usage_prevents_unsafe_shrink) ... ok
+test_conservative_host_based_ceilings (test_resources.Resources.test_conservative_host_based_ceilings) ... ok
+test_failure_restores_both_cgroup_and_config (test_resources.Resources.test_failure_restores_both_cgroup_and_config) ... ok
+test_mcp_resources_is_queued_not_a_host_shell (test_resources.Resources.test_mcp_resources_is_queued_not_a_host_shell) ... ok
+test_policy_ceiling_cannot_be_raised_by_remote_request (test_resources.Resources.test_policy_ceiling_cannot_be_raised_by_remote_request) ... ok
+test_rejects_nan_bool_negative_fractional_memory_and_unbounded (test_resources.Resources.test_rejects_nan_bool_negative_fractional_memory_and_unbounded) ... ok
+test_rejects_unknown_fields_and_missing_values (test_resources.Resources.test_rejects_unknown_fields_and_missing_values) ... ok
+test_reserves_controller_headroom (test_resources.Resources.test_reserves_controller_headroom) ... ok
+test_resource_operation_has_optimistic_revision (test_resources.Resources.test_resource_operation_has_optimistic_revision) ... ok
+test_set_changes_only_fixed_lab_slice_and_persists_limits (test_resources.Resources.test_set_changes_only_fixed_lab_slice_and_persists_limits) ... ok
+test_status_returns_only_resources_policy_and_revision (test_resources.Resources.test_status_returns_only_resources_policy_and_revision) ... ok
+test_unapproved_peer_uid_is_rejected (test_resources.Resources.test_unapproved_peer_uid_is_rejected) ... ok
 test_default_role_with_pipe_stdin (test_terminal.TerminalPrompts.test_default_role_with_pipe_stdin) ... ok
 test_hidden_input_is_not_echoed (test_terminal.TerminalPrompts.test_hidden_input_is_not_echoed) ... ok
 test_no_controlling_terminal_has_friendly_error (test_terminal.TerminalPrompts.test_no_controlling_terminal_has_friendly_error) ... ok
@@ -76,6 +88,6 @@ test_validation (test_updates.Updates.test_validation) ... ok
 test_worker_rollback_on_failed_health (test_updates.Updates.test_worker_rollback_on_failed_health) ... ok
 
 ----------------------------------------------------------------------
-Ran 76 tests in 3.480s
+Ran 88 tests in 3.591s
 
 OK

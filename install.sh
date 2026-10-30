@@ -21,7 +21,7 @@ def fetch(url,bound):
 sha=json.loads(fetch('https://api.github.com/repos/'+repo+'/commits/main',65536))['sha']
 if not re.fullmatch('[0-9a-f]{40}',sha):raise ValueError('Bad commit identity')
 checks=json.loads(fetch('https://api.github.com/repos/'+repo+'/commits/'+sha+'/check-runs?per_page=100',2000000)).get('check_runs',[])
-for name in ('unit-and-protocol','ubuntu-isolation','ubuntu-22-isolation','ubuntu-22-hub'):
+for name in ('unit-and-protocol','ubuntu-isolation','ubuntu-22-isolation','ubuntu-22-hub','ubuntu-24-hub'):
     matching=[c for c in checks if c.get('name')==name and c.get('head_sha')==sha and c.get('app',{}).get('slug')=='github-actions']
     c=max(matching,key=lambda c:c.get('id',0)) if matching else {}
     if c.get('conclusion')!='success' or c.get('status')!='completed':raise SystemExit('CI for main has not passed; wait for all required green checks before installing')

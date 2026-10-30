@@ -24,6 +24,9 @@ def tools():
     node = {"type": "string", "description": "Exact node ID returned by lab_nodes"}
     props = {
         "lab_nodes": ({}, []),
+        "lab_resources": ({"node":node,"action":{"type":"string","enum":["status","set"]},"revision":{"type":"string"},
+            "account_cpus":{"type":"number"},"account_memory_mib":{"type":"integer"},
+            "capsule_cpus":{"type":"number"},"capsule_memory_mib":{"type":"integer"}},["node","action"]),
         "lab_update": ({"target":{"type":"string","description":"mother or exact node ID"},"action":{"type":"string","enum":["check","status","apply","rollback"]},"commit":{"type":"string","description":"Full commit SHA; required for apply"}},["target","action"]),
         "lab_exec": ({"node": node, "command": {"type": "string"}, "seconds": {"type": "integer", "minimum": 1, "maximum": 300}}, ["node", "command"]),
         "lab_logs": ({"node": node, "process": {"type": "string"}, "offset": {"type": "integer", "minimum": 0}}, ["node", "process"]),
@@ -38,6 +41,7 @@ def tools():
     }
     descriptions = {
         "lab_update": "Check/status/apply/rollback this DV Lab application, not host packages, helpers, quotas or configs. Apply only explicit CI-passed main commit. Stops local lab workloads; reconnection may be needed. Target mother or one node; roll out nodes first, mother last.",
+        "lab_resources": "Read or set lab-only CPU/RAM within initial operator-approved ceilings. Set requires current revision and all four limits; stops capsule jobs and destroys temporary /work. No host-wide quotas, shell or unlimited mode. Async: fetch lab_action.",
         "lab_nodes": "List enrolled nodes, lab-only public ports, quotas and status. No host terminal.",
         "lab_exec": "Start arbitrary shell code ONLY inside the bounded read-only-root lab capsule. Async: fetch lab_action, then use process ID with lab_logs. Deadline <=300s.",
         "lab_logs": "Queue a bounded tail/cursor log read for a capsule process.",
@@ -53,7 +57,7 @@ def tools():
     return [dict(name=name, description=descriptions[name],
                  inputSchema=dict(type="object", properties=p, required=required, additionalProperties=False),
                  annotations=dict(readOnlyHint=name in ("lab_nodes", "lab_action", "lab_logs", "lab_read", "lab_list", "lab_metrics"),
-                                  destructiveHint=name in ("lab_pause", "lab_kill"),
+                                  destructiveHint=name in ("lab_pause", "lab_kill", "lab_resources"),
                                   openWorldHint=False))
             for name, (p, required) in props.items()]
 
@@ -228,6 +232,8 @@ class Hub:
             op=validate_update({k:v for k,v in args.items() if k!="target"})
             if args["target"]=="mother":return broker(op)
             return self.queue(args["target"],dict(op="update",**op))
+        if name == "lab_resources":
+            return self.queue(args["node"],dict(op="resources",**{k:v for k,v in args.items() if k!="node"}))
         if name == "lab_nodes":
             return self.nodes()
         if name == "lab_action":

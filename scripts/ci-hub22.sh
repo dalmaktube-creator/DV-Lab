@@ -4,7 +4,7 @@ set -euo pipefail
 [[ ${GITHUB_ACTIONS:-} == true ]] || { echo 'Disposable GitHub runner only'; exit 1; }
 [[ -n ${GITHUB_SHA:-} ]] || exit 1
 . /etc/os-release
-[[ $ID == ubuntu && $VERSION_ID == 22.04 ]] || { echo 'Jammy runner required'; exit 1; }
+[[ $ID == ubuntu && ( $VERSION_ID == 22.04 || $VERSION_ID == 24.04 ) ]] || { echo 'Ubuntu 22.04 or 24.04 runner required'; exit 1; }
 certdir=$(mktemp -d /var/tmp/dv-lab-hub-ci.XXXXXX)
 # The key lives outside the repository: it must NEVER enter the bootstrap archive.
 openssl req -x509 -newkey rsa:2048 -nodes -days 90 -keyout "$certdir/key.pem" -out "$certdir/cert.pem" -subj /CN=localhost -addext subjectAltName=DNS:localhost -addext basicConstraints=critical,CA:TRUE >/dev/null 2>&1

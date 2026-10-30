@@ -34,7 +34,7 @@ Credentials have no automatic scheduled rotation/revocation UI in this preview. 
 
 ## Validation still required
 
-Unit/protocol tests do not validate the running Linux isolation boundary. Verify on disposable Ubuntu 24.04 machines: namespace differences, TUN, rootless cgroups, account quotas including slirp, deny host/private/IPv6 egress, peer port allowlist, no host data/secret mounts, pause/offline/agent crash cleanup, reboot ordering, bounded memory/disk/logs and actual client tool discovery. Do not deploy on a production host as though these tests have already passed.
+Unit/protocol tests do not validate the running Linux isolation boundary. Verify on disposable Ubuntu 22.04 and 24.04 machines: namespace differences, TUN, rootless cgroups, account quotas including slirp, deny host/private/IPv6 egress, peer port allowlist, no host data/secret mounts, pause/offline/agent crash cleanup, reboot ordering, bounded memory/disk/logs and actual client tool discovery. Do not deploy on a production host as though these tests have already passed.
 
 ## Update boundary
 
@@ -43,3 +43,7 @@ See UPDATE.md. Application self-update trusts the fixed repository/main and succ
 ## Operator TLS automation
 
 Initial INSTALL approval authorizes root Certbot package installation and CA requests under Let’s Encrypt terms (no email), plus a pinned renewal helper and timer. This operator-only root capability is not an MCP tool and is not updated from a mutable release. It selects exactly one lineage, rejects renewal stop hooks/webserver installers, ignores global CLI config and directory hooks, checks key/hostname/system trust/expiry and swaps a complete root:hub pair atomically. Only the DV Lab hub is restarted, with local trusted HTTPS health verification and pair rollback. No webserver shutdown or firewall bypass is performed. Initial standalone issuance needs public TCP 80; safe existing webroot/DNS lineages retain their operator-configured challenge mechanism and credentials. The timer is a bounded periodic root job (20% CPU, 256MiB ceiling, 15-minute timeout), not a daemon. Existing distro/client renewal schedules are not deleted or rewritten. Public CA issuance and future renewal availability are not proven by mocked ACME tests.
+
+## Fixed resource broker
+
+New node installation approves host-derived, immutable resource ceilings and installs an independent root-owned socket helper. SO_PEERCRED accepts only root or the fixed dedicated node UID. Inputs are finite numeric bounds plus a current revision, not paths/commands/unit names. CPU/RAM changes target only user-UID.slice and fixed config/drop-in paths. Memory shrink requires actual usage plus headroom; all calls preserve no-swap/PID bounds. Ordinary failures attempt verified rollback; disk/power-loss recovery is not guaranteed. Application updates cannot rewrite this helper, its socket units or initial policy. No host-wide CPU/memory control or unrestricted shell is added. Dynamic changes can still affect contention, and destroy the capsule workspace. Existing mothers need no root migration to route this new application operation; new nodes get the broker on their initial installation.

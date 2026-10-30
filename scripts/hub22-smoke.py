@@ -43,7 +43,7 @@ else:raise AssertionError('Hub never became healthy')
 assert health['commit']==os.environ['GITHUB_SHA'],health
 mcp=Client(origin,cfg['mcp_token'])
 r=mcp.post('/mcp',dict(jsonrpc='2.0',id=1,method='initialize',params={'protocolVersion':'2025-03-26'}));assert r['result']['serverInfo']['name']=='DV Lab',r
-r=mcp.post('/mcp',dict(jsonrpc='2.0',id=2,method='tools/list'));assert len(r['result']['tools'])==12,r
+r=mcp.post('/mcp',dict(jsonrpc='2.0',id=2,method='tools/list'));assert len(r['result']['tools'])==13,r
 # Exercise the real unprivileged hub -> local socket broker path under its unit sandbox.
 r=mcp.post('/mcp',dict(jsonrpc='2.0',id=3,method='tools/call',params={'name':'lab_update','arguments':{'target':'mother','action':'status'}}));assert r['result']['isError'] is False,r
 state=json.loads(r['result']['content'][0]['text']);assert state['current']==health['commit'],state

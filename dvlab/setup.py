@@ -421,6 +421,53 @@ def subids(name):
     run(['usermod','--add-subuids',f'{start}-{start+65535}','--add-subgids',f'{start}-{start+65535}',name])
 
 
+def resource_ceilings():
+    from .resource_guard import ceilings
+    memory=next(int(line.split()[1])//1024 for line in Path('/proc/meminfo').read_text().splitlines() if line.startswith('MemTotal:'))
+    return ceilings(os.cpu_count() or 1,memory)
+
+
+def install_resources(who,run_command=run):
+    limits=resource_ceilings()
+    config(ETC/'resource-policy.json',dict(schema=1,uid=who.pw_uid,**limits))
+    helper=Path('/usr/local/lib/dv-lab/resource_guard.py')
+    if helper.exists():raise SystemExit('Reserved resource helper exists; inspect before installing')
+    helper.parent.mkdir(mode=0o755,parents=True,exist_ok=True)
+    shutil.copyfile(SOURCE/'dvlab/resource_guard.py',helper);helper.chmod(0o644)
+    state=Path('/var/lib/dv-lab-resource');state.mkdir(mode=0o700);state.chmod(0o700)
+    Path('/etc/systemd/system/dv-lab-resources.socket').write_text('''[Unit]
+Description=DV Lab bounded resource control socket
+[Socket]
+ListenStream=/run/dv-lab/resources.sock
+SocketMode=0660
+SocketUser=root
+SocketGroup=dvlab-node
+DirectoryMode=0755
+Accept=yes
+MaxConnections=2
+[Install]
+WantedBy=sockets.target
+''')
+    Path('/etc/systemd/system/dv-lab-resources@.service').write_text('''[Unit]
+Description=DV Lab fixed resource broker
+[Service]
+ExecStart=/usr/bin/python3 -I /usr/local/lib/dv-lab/resource_guard.py
+StandardInput=socket
+StandardOutput=inherit
+User=root
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+CPUQuota=10%
+MemoryMax=64M
+MemorySwapMax=0
+TasksMax=16
+RuntimeMaxSec=60
+UMask=0077
+''')
+    return limits
+
+
 def agent(url=None):
     CONSOLE.banner('Isolated test node',__version__)
     CONSOLE.stage(1,6,'System checks')
@@ -442,8 +489,9 @@ def agent(url=None):
     CONSOLE.hint('One-use invitation from the mother; input is hidden.')
     code=secret('Join code')
     CONSOLE.stage(3,6,'Review & approve')
-    CONSOLE.summary([('Node',name),('Mother',url),('Lab ports','45100–45107 TCP + UDP'),('Account budget','0.5 CPU / 192 MiB')])
-    confirm('Adds a rootless capsule, own account, helper and firewall table.\nCapsule: 0.4 CPU / 128 MiB. Updates trust this repo.\nExisting services are not rewritten; shared-kernel testing is not risk-free.')
+    limits=resource_ceilings()
+    CONSOLE.summary([('Node',name),('Mother',url),('Lab ports','45100–45107 TCP + UDP'),('Starting budget','0.5 CPU / 192 MiB'),('MCP resource ceiling',str(limits['max_account_cpus'])+' CPU / '+str(limits['max_account_memory_mib'])+' MiB')])
+    confirm('Adds a rootless capsule, own account, fixed helpers and own firewall table.\nStarts at 0.4 CPU / 128 MiB inside a 0.5 CPU / 192 MiB account.\nMCP can adjust lab resources within the displayed ceiling; no unlimited mode.\nResource changes stop lab jobs and clear temporary /work.\nUpdates trust this repo. Existing services are not rewritten.')
     CONSOLE.stage(4,6,'Enroll & install dependencies')
     while True:
         try:enrollment=Client(url).post('/agent/enroll',dict(code=code,name=name));code='';break
@@ -461,6 +509,9 @@ def agent(url=None):
     CONSOLE.hint('One-time image build; detailed output is kept in the private log.')
     files();who=account(USER);subids(USER);grant_update(who)
     state=Path("/var/lib/dv-lab-node");state.mkdir(mode=0o700);os.chown(state,who.pw_uid,who.pw_gid)
+    delegation=Path(f'/etc/systemd/system/user@{who.pw_uid}.service.d');delegation.mkdir(parents=True,exist_ok=True)
+    (delegation/'dv-lab-delegation.conf').write_text('[Service]\nDelegate=cpu memory pids\n')
+    run(['systemctl','daemon-reload'])
     run(['loginctl','enable-linger',USER]);run(['systemctl','start',f'user@{who.pw_uid}.service'])
     # Build before UID-specific egress restriction and quotas; one-time cost, NOT benchmark overhead.
     userrun(who,['test','-r','/dev/net/tun']);userrun(who,['test','-w','/dev/net/tun'])
@@ -470,6 +521,7 @@ def agent(url=None):
     cfg=dict(hub=url,**enrollment,image=image,port_start=45100,port_count=8,
              capsule_memory_mib=128,capsule_cpus=.4,account_memory_mib=192,account_cpus=.5)
     config(ETC/'agent.json',cfg,who)
+    install_resources(who)
     dns=[]
     for line in Path('/etc/resolv.conf').read_text().splitlines():
         if line.startswith('nameserver '):
@@ -523,6 +575,7 @@ WantedBy=default.target
     run(['systemctl','daemon-reload'])
     run(['systemctl','enable','--now','dv-lab-network.service'])
     run(['systemctl','set-property',f'user-{who.pw_uid}.slice','CPUQuota=50%','MemoryMax=192M','MemorySwapMax=0','TasksMax=128'])
+    run(['systemctl','enable','--now','dv-lab-resources.socket'])
     userrun(who,['systemctl','--user','daemon-reload']);userrun(who,['systemctl','--user','enable','--now','dv-lab-agent.service'])
     CONSOLE.ok('Node service started.')
     CONSOLE.line('Next: sudo dv-lab','title')

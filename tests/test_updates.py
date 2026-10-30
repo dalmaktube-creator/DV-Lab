@@ -62,7 +62,7 @@ class Updates(unittest.TestCase):
             self.assertFalse((p/'etc').exists());self.assertFalse((p/'scripts').exists())
             self.assertEqual((p/'install.sh').stat().st_mode&0o777,0o644)
     def test_both_ci_checks_latest_must_pass(self):
-        checks=[dict(id=1,name=n,head_sha=SHA,status='completed',conclusion='success',app={'slug':'github-actions'}) for n in ('unit-and-protocol','ubuntu-isolation','ubuntu-22-isolation','ubuntu-22-hub')]
+        checks=[dict(id=1,name=n,head_sha=SHA,status='completed',conclusion='success',app={'slug':'github-actions'}) for n in ('unit-and-protocol','ubuntu-isolation','ubuntu-22-isolation','ubuntu-22-hub','ubuntu-24-hub')]
         def api(path):
             return {'sha':SHA} if path=='/commits/main' else {'check_runs':checks}
         with patch.object(g,'api',side_effect=api):self.assertTrue(g.candidate(SHA)['ci_passed'])

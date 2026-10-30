@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 
 MAX_BODY = 300_000
 MAX_CHUNK = 65536
-OPS = {"start", "logs", "kill", "read", "write", "list", "metrics", "update"}
+OPS = {"start", "logs", "kill", "read", "write", "list", "metrics", "update", "resources"}
 
 
 def digest(value):
@@ -66,6 +66,9 @@ def validate_operation(args):
     if args.get("op")=="update":
         from .updating import validate_update
         return dict(validate_update(args))
+    if args.get("op")=="resources":
+        from .resource_guard import validate
+        return validate(args)
     a = dict(args)
     op = a["op"]
     allowed = {

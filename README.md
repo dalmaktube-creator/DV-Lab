@@ -1,6 +1,6 @@
 # DV Lab
 
-**0.2.0-preview.6 — isolated multi-server test lab with an MCP controller.**
+**0.2.0-preview.7 — isolated multi-server test lab with an MCP controller.**
 
 [راهنمای فارسی](README.fa.md) · [Updates](UPDATE.md) · [Security boundaries](SECURITY.md) · [Acceptance checklist](CHECKLIST.md)
 
@@ -14,7 +14,7 @@ curl -fsSL https://raw.githubusercontent.com/dalmaktube-creator/DV-Lab/main/inst
 
 The installer asks for **hub** or **agent**, reads prompts through `/dev/tty`, pins an exact main commit, requires passing GitHub CI, verifies downloaded files against that commit's Git tree, and asks for explicit confirmation before host changes. For a private repository, unauthenticated raw downloads do not work. No GitHub token is collected by this installer.
 
-**Preview, not production-certified.** Hub: Ubuntu 22.04 or 24.04. Isolated agent: Ubuntu 24.04 only. Both require systemd + cgroup v2. Hub needs an existing valid TLS certificate and public DNS; no automatic certificate issuance, nginx edits or host firewall overrides. There has been no deployment on the owner's Iran/Turkey servers.
+**Preview, not production-certified.** Hub: Ubuntu 22.04 or 24.04. Isolated agent: Ubuntu 22.04 or 24.04. Both require systemd + cgroup v2. Hub needs public DNS; TLS is discovered or obtained automatically as documented below. No webserver shutdown or host firewall override. Target-server throughput remains a separate validation task.
 
 ## Control center
 
@@ -57,9 +57,9 @@ python3 -m compileall -q dvlab scripts
 bash -n install.sh scripts/ci-isolation.sh
 ```
 
-76 local regression tests passed at publication preparation. GitHub CI is configured to repeat those tests and run rootless Podman/TUN/cgroup/nft smoke on a disposable Ubuntu runner. **A configured workflow is not evidence it passed**; consult the actual Actions run. Multi-server throughput, target-host overhead, reboot/fault acceptance and deployment remain separate validation tasks. The CI helper refuses execution outside GitHub Actions and must never be run on production.
+88 local regression tests passed at publication preparation. GitHub CI is configured to repeat those tests and run rootless Podman/TUN/cgroup/nft smoke on a disposable Ubuntu runner. **A configured workflow is not evidence it passed**; consult the actual Actions run. Multi-server throughput, target-host overhead, reboot/fault acceptance and deployment remain separate validation tasks. The CI helper refuses execution outside GitHub Actions and must never be run on production.
 
-Ubuntu 22.04 support is **hub-only**: the `ubuntu-22-hub` CI job performs a real installation on a disposable Jammy VM, then checks TLS/MCP, the console, the narrow local-socket update broker and service quotas. It is not a claim that Jammy rootless agents were validated; their installer still fails closed.
+Both supported Ubuntu releases have real rootless isolation CI (namespace separation, TUN, CPU/RAM/PID/swap enforcement and nft), plus full hub installation CI. Jammy requires explicit CPU/memory/PID delegation to its dedicated user manager; no global AppArmor/sysctl bypass or unsupported Podman CLI flags are used. VPS kernels must still expose cgroup v2 controllers, user namespaces and TUN; unsupported hosts fail closed.
 
 ### Installer interface
 
@@ -74,3 +74,11 @@ If no suitable managed lineage exists, standalone HTTP-01 is tested against stag
 A root-pinned single-lineage renewal helper runs twice daily via `dv-lab-tls-renew.timer` (random delay, no idle daemon). A renewed pair is validated and copied root:hub 640 into an atomic generation; only a changed pair restarts the hub, followed by local HTTPS/SNI health verification and rollback on failure. The current and previous generations are retained. Scheduling and a successful staging test are checked, not a promise that future DNS/firewall/credentials cannot break. Inspect failures with `journalctl -u dv-lab-tls-renew.service`.
 
 CI uses a real locally trusted certificate, real atomic deployment/service restart/live HTTPS checks, and an explicitly mocked external ACME request. It does not issue a live public certificate for a domain we do not control.
+
+### Remote resource control
+
+`lab_resources(node, action="status")` queues a read of current lab quotas, immutable initial ceilings and a revision. To set, use that revision and all four `account_cpus`, `account_memory_mib`, `capsule_cpus`, `capsule_memory_mib` values. Fetch completion through `lab_action`. A set stops ONLY the capsule and destroys temporary `/work`; export artifacts first. No controller or host shell is exposed.
+
+New node installs include a separate root-pinned, socket-activated resource broker. Initial account/capsule limits remain 0.5 CPU/192MiB and 0.4 CPU/128MiB. The initial installer displays and approves hard maxima derived from the host: up to 75% of logical CPUs (absolute maximum 4 CPU, minimum 0.5), and up to 25% of host RAM (absolute maximum 2048MiB, minimum 192MiB). At least 0.1 CPU and 64MiB remain outside the capsule. Actual usage plus 32MiB headroom is required before shrinking memory; swap and PID bounds remain fixed. These are limits, not reservations or guarantees of zero production impact.
+
+Only the dedicated lab user slice and fixed agent config/drop-in may change; no caller-supplied path, executable or host-wide quota is accepted. Changes are verified against real cgroups and persisted for reboot, with rollback on ordinary failure. A capsule and the enclosing account are revalidated after changes. The helper is a 10% CPU/64MiB bounded socket oneshot, not an idle daemon. Application self-update remains independent: an existing mother can receive this release without a privileged helper migration. Older nodes without the resource socket need an operator-reviewed initial migration; changing immutable root ceilings is never smuggled through an application update.
