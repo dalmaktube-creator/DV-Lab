@@ -206,7 +206,7 @@ WantedBy=multi-user.target
 
 
 def userrun(who,args,**kw):
-    env=['XDG_RUNTIME_DIR=/run/user/'+str(who.pw_uid),'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+str(who.pw_uid)+'/bus']
+    env=['-i','HOME='+who.pw_dir,'USER='+who.pw_name,'LOGNAME='+who.pw_name,'PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin','XDG_CONFIG_HOME='+who.pw_dir+'/.config','XDG_DATA_HOME='+who.pw_dir+'/.local/share','XDG_RUNTIME_DIR=/run/user/'+str(who.pw_uid),'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+str(who.pw_uid)+'/bus']
     return run(['runuser','-u',who.pw_name,'--','env',*env,*args],**kw)
 
 

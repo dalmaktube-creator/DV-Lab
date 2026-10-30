@@ -18,8 +18,8 @@ cp dvlab/{__init__,common,runner,sampling}.py "$root/capsule/dvlab/"
 chmod -R a+rX "$root"
 # Ubuntu 24.04 AppArmor may restrict unprivileged user namespaces. Use the
 # packaged podman profile; do NOT disable AppArmor/sysctls globally to pass.
-runuser -u dvlab-ci -- env XDG_RUNTIME_DIR="$runtime" DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" podman build -t localhost/dv-lab:ci "$root"
-image=$(runuser -u dvlab-ci -- env XDG_RUNTIME_DIR="$runtime" DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" podman image inspect --format '{{.Id}}' localhost/dv-lab:ci)
+runuser -u dvlab-ci -- env -i HOME=/home/dvlab-ci USER=dvlab-ci LOGNAME=dvlab-ci PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin XDG_CONFIG_HOME=/home/dvlab-ci/.config XDG_DATA_HOME=/home/dvlab-ci/.local/share XDG_RUNTIME_DIR="$runtime" DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" podman build -t localhost/dv-lab:ci "$root"
+image=$(runuser -u dvlab-ci -- env -i HOME=/home/dvlab-ci USER=dvlab-ci LOGNAME=dvlab-ci PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin XDG_CONFIG_HOME=/home/dvlab-ci/.config XDG_DATA_HOME=/home/dvlab-ci/.local/share XDG_RUNTIME_DIR="$runtime" DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" podman image inspect --format '{{.Id}}' localhost/dv-lab:ci)
 [[ $image == sha256:* ]] || image=sha256:$image
 printf '%s' "$image" > "$root/image-id"
 systemctl set-property "user-$uid.slice" CPUQuota=50% MemoryMax=192M MemorySwapMax=0 TasksMax=128
@@ -35,4 +35,4 @@ PY
 nft -c -f /tmp/dv-lab-ci.nft
 nft -f /tmp/dv-lab-ci.nft
 # The entire test + rootless helpers belong to the bounded user slice.
-runuser -u dvlab-ci -- env XDG_RUNTIME_DIR="$runtime" DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" systemd-run --user --wait --pipe --collect --unit=dv-lab-ci-test --property=Delegate=yes --working-directory="$root" /usr/bin/python3 "$root/scripts/smoke.py"
+runuser -u dvlab-ci -- env -i HOME=/home/dvlab-ci USER=dvlab-ci LOGNAME=dvlab-ci PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin XDG_CONFIG_HOME=/home/dvlab-ci/.config XDG_DATA_HOME=/home/dvlab-ci/.local/share XDG_RUNTIME_DIR="$runtime" DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" systemd-run --user --wait --pipe --collect --unit=dv-lab-ci-test --property=Delegate=yes --working-directory="$root" /usr/bin/python3 "$root/scripts/smoke.py"

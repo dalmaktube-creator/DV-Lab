@@ -165,6 +165,6 @@ python3 -m compileall -q dvlab
 bash -n install.sh
 ```
 
-۳۱ آزمون محلی پاس شده‌اند: احراز هویت تفکیک‌شده، کد یک‌بارمصرف، صف/lease بدون اجرای مجدد، pause/offline، framing HTTP/notification، TLS واقعی روی localhost و رد گواهی نامعتبر، فایل/لینک/FIFO، مهلت/لغو/حد لاگ، argv محدود Podman، محاسبه CPU و بسته‌بندی.
+۳۲ آزمون محلی پاس شده‌اند: احراز هویت تفکیک‌شده، کد یک‌بارمصرف، صف/lease بدون اجرای مجدد، pause/offline، framing HTTP/notification، TLS واقعی روی localhost و رد گواهی نامعتبر، فایل/لینک/FIFO، مهلت/لغو/حد لاگ، argv محدود Podman، محاسبه CPU و بسته‌بندی.
 
 **انجام‌نشده روی سرورهای شما:** نصب end-to-end روی Ubuntu، ایجاد واقعی rootless Podman/TUN، اعمال واقعی nft/cgroup و reboot، کشف ابزار در اتصال Notion و سنجش throughput/مصرف بیکار روی ایران و ترکیه. محیط ساخت محلی Podman/systemd عملیاتی ندارد؛ CI اوبونتو برای smoke واقعی rootless/TUN/cgroup/nft تعریف شده، اما تا نتیجه واقعی آن دیده نشود نباید پاس‌شده فرض شود. عبور unit test به معنی عبور نصب کامل یا تست چندسروری نیست. فایل CHECKLIST.md در ZIP روند پذیرش یک‌باره است؛ این بررسی‌ها برای توسعه‌دهنده/اپراتورند، نه درخواست تکرار بنچمارک دستی از شما.

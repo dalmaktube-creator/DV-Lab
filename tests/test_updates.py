@@ -84,3 +84,19 @@ class Updates(unittest.TestCase):
             self.assertEqual((root/'current').resolve(),old)
             self.assertEqual(json.loads((state/'status.json').read_text())['state'],'failed_restored')
             self.assertIn(['fake','stop'],seen)
+
+class AccountEnvironment(unittest.TestCase):
+    def test_account_helpers_do_not_inherit_operator_configuration(self):
+        from types import SimpleNamespace
+        from dvlab import setup
+        who=SimpleNamespace(pw_uid=1234,pw_name='dvlab-node',pw_dir='/home/dvlab-node')
+        with patch.object(setup,'run') as run:
+            setup.userrun(who,['podman','info'])
+            args=run.call_args.args[0]
+            self.assertEqual(args[args.index('env')+1],'-i')
+            self.assertIn('HOME=/home/dvlab-node',args)
+            self.assertIn('XDG_CONFIG_HOME=/home/dvlab-node/.config',args)
+        with patch('pwd.getpwnam',return_value=who):
+            args=g.node_command('restart')
+            self.assertEqual(args[args.index('env')+1],'-i')
+            self.assertIn('HOME=/home/dvlab-node',args)

@@ -138,7 +138,7 @@ def command(args,check=True):
 def node_command(verb):
     import pwd
     who=pwd.getpwnam('dvlab-node');runtime='/run/user/'+str(who.pw_uid)
-    return ['runuser','-u','dvlab-node','--','env','XDG_RUNTIME_DIR='+runtime,'DBUS_SESSION_BUS_ADDRESS=unix:path='+runtime+'/bus','/usr/bin/systemctl','--user',verb,'dv-lab-agent.service']
+    return ['runuser','-u','dvlab-node','--','env','-i','HOME='+who.pw_dir,'USER=dvlab-node','LOGNAME=dvlab-node','PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin','XDG_CONFIG_HOME='+who.pw_dir+'/.config','XDG_DATA_HOME='+who.pw_dir+'/.local/share','XDG_RUNTIME_DIR='+runtime,'DBUS_SESSION_BUS_ADDRESS=unix:path='+runtime+'/bus','/usr/bin/systemctl','--user',verb,'dv-lab-agent.service']
 
 
 def services():
