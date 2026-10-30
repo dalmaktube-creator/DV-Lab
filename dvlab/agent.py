@@ -262,7 +262,7 @@ class Agent:
                         "port_count":self.cfg["port_count"],"account_cpus":self.cfg["account_cpus"],
                         "account_memory_mib":self.cfg["account_memory_mib"],
                         "capsule_memory_mib":self.cfg["capsule_memory_mib"],
-                        "capsule_cpus":self.cfg["capsule_cpus"],"resource_control":True,
+                        "capsule_cpus":self.cfg["capsule_cpus"],"resource_control":True,"location":"mother" if self.cfg.get("mother_local") else "remote",
                         "isolation":"rootless-readonly-ephemeral"}})
                     self.contact=time.monotonic()
                     atomic_json("/var/lib/dv-lab-node/heartbeat.json",dict(at=time.time(),**identity()))

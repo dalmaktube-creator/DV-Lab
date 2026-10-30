@@ -43,7 +43,7 @@ jobs:
           /usr/bin/python3 -m unittest discover -s tests -p test_terminal.py -v
   ubuntu-22-hub:
     runs-on: ubuntu-22.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Full Python 3.10 regression suite
@@ -53,13 +53,13 @@ jobs:
 
   ubuntu-24-hub:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Full Python 3.12 regression suite
         run: /usr/bin/python3 -m unittest discover -s tests -v
       - name: Install real hub, TLS, MCP and pinned update broker on disposable Noble
-        run: sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" GITHUB_SHA="$GITHUB_SHA" bash scripts/ci-hub22.sh
+        run: sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" GITHUB_SHA="$GITHUB_SHA" DV_LAB_CI_MIGRATION=1 bash scripts/ci-hub22.sh
 
   ubuntu-22-node-install:
     runs-on: ubuntu-22.04

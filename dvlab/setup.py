@@ -15,7 +15,7 @@ import tarfile
 import ssl
 from urllib.parse import urlsplit
 
-from .common import atomic_json, identifier, origin, token
+from .common import atomic_json, identifier, origin, token, public_ip
 from .agent import Client
 from . import __version__
 from .install_ui import Console, color
@@ -370,21 +370,77 @@ def portcheck(start,count,tcp_only=False):
         for s in sockets:s.close()
 
 
+AGENT_PACKAGES=('podman','slirp4netns','uidmap','dbus-user-session','nftables',
+                'sudo','fuse-overlayfs','ca-certificates','iproute2')
+
+
+def local_agent_preflight():
+    # Run before package/account/service changes, also on a fresh mother install.
+    preflight('agent')
+    try:portcheck(45100,8)
+    except OSError:raise SystemExit('Lab ports 45100–45107 must be free; no service will be stopped.') from None
+    if not Path('/dev/net/tun').exists():raise SystemExit('/dev/net/tun is required for the mother capsule.')
+    for path in (ETC/'network.json',ETC/'resource-policy.json',
+                 Path('/usr/local/lib/dv-lab/resource_guard.py'),
+                 Path('/usr/local/sbin/dv-lab-netpolicy')):
+        if path.exists():raise SystemExit('Reserved local-agent path exists; inspect before installation: '+str(path))
+    resource_ceilings()
+
+
+def mother_node_address(url):
+    parsed=urlsplit(origin(url));port=parsed.port or 443
+    if 45100<=port<=45107:raise ValueError('Mother HTTPS port overlaps reserved lab ports 45100–45107.')
+    ips=sorted({x[4][0] for x in socket.getaddrinfo(parsed.hostname,port,socket.AF_INET,socket.SOCK_STREAM)})
+    if len(ips)!=1:raise ValueError('Mother local node requires a direct domain with one public IPv4 address.')
+    return public_ip(ips[0])
+
+
+def install_mother_agent(url,ip,*,dependencies=True):
+    # Enrollment executes as the hub account: SQLite/WAL never become root-owned.
+    # Credentials are captured locally, never passed in argv or printed/logged.
+    who=pwd.getpwnam('dvlab-hub')
+    result=userrun(who,['/usr/bin/python3','-m','dvlab.local_node',ip],capture_output=True,text=True)
+    enrollment=json.loads(result.stdout)
+    if set(enrollment)!={'node','token'}:raise ValueError('Unexpected local enrollment response')
+    install_agent(url,enrollment,[ip],mother_local=True,dependencies=dependencies)
+    CONSOLE.ok('Mother local node enrolled as mother-local; normal MCP node tools are available.')
+
+
+def migrate_mother_agent():
+    """Explicit root migration, not an application-update broker side effect."""
+    if os.geteuid()!=0:raise SystemExit('Run mother-node-upgrade with sudo from the verified installed release.')
+    marker=SOURCE/'.source-commit';current=ROOT/'current/.source-commit'
+    if not marker.is_file() or not current.is_file() or marker.read_text().strip()!=current.read_text().strip():
+        raise SystemExit('Update to this exact release before running mother-node-upgrade.')
+    if not (ETC/'hub.json').is_file():raise SystemExit('Install the mother first.')
+    local_agent_preflight()
+    cfg=json.loads((ETC/'hub.json').read_text());url=origin(cfg['public_url']);ip=mother_node_address(url)
+    if run(['systemctl','is-active','--quiet','dv-lab-hub.service'],check=False).returncode:
+        raise SystemExit('Mother must be running before adding its local node.')
+    limits=resource_ceilings()
+    CONSOLE.summary([('Migration','Add mother-local; preserve hub and remote nodes'),
+                     ('Starting budget','0.5 CPU / 192 MiB account; 0.4 CPU / 128 MiB capsule'),
+                     ('Resource ceiling',str(limits['max_account_cpus'])+' CPU / '+str(limits['max_account_memory_mib'])+' MiB'),
+                     ('Lab ports','45100–45107 TCP + UDP')])
+    confirm('Adds the same dedicated account, rootless image, fixed helpers and own firewall table as a remote node.\nThe hub account, TLS, tokens, database records for remote nodes and existing services are not replaced.')
+    install_mother_agent(url,ip)
+
+
 def hub():
     CONSOLE.banner('Mother / Hub',__version__)
-    CONSOLE.stage(1,5,'System checks')
-    preflight('hub');CONSOLE.ok('System and reserved account checked.')
-    CONSOLE.stage(2,5,'Connection & TLS')
-    url=hub_address()
+    CONSOLE.stage(1,6,'System checks')
+    preflight('hub');local_agent_preflight();CONSOLE.ok('Hub and local-agent accounts, TUN and reserved ports checked.')
+    CONSOLE.stage(2,6,'Connection & TLS')
+    url=hub_address();local_ip=mother_node_address(url)
     parsed=urlsplit(url);port=parsed.port or 443
     tls_manager=TLSManager(run,CONSOLE)
     tls_plan=tls_manager.inspect(parsed.hostname)
-    CONSOLE.stage(3,5,'Review & approve')
-    CONSOLE.summary([('Role','Mother'),('Address',url),('Service budget','0.25 CPU / 256 MiB')])
-    confirm('Creates a dedicated hub account and bounded services.\nTLS: reuse + renewal test, or automatic Let’s Encrypt issuance.\nINSTALL also accepts Let’s Encrypt terms: letsencrypt.org/repository/\nACME account has no email; a twice-daily renewal timer is installed.\nExisting SSH, proxy and firewall rules are not changed.')
-    CONSOLE.installing=True;CONSOLE.stage(4,5,'Install & configure')
+    CONSOLE.stage(3,6,'Review & approve')
+    CONSOLE.summary([('Role','Mother'),('Address',url),('Hub budget','0.25 CPU / 256 MiB'),('Local test node','0.5 CPU / 192 MiB account; 0.4 CPU / 128 MiB capsule'),('Lab ports','45100–45107 TCP + UDP')])
+    confirm('Creates dedicated hub + local test-node accounts and bounded services.\nAdds a rootless capsule, pinned helpers and a dedicated lab firewall table.\nTLS: reuse + renewal test, or automatic Let’s Encrypt issuance.\nINSTALL also accepts Let’s Encrypt terms: letsencrypt.org/repository/\nACME account has no email; a twice-daily renewal timer is installed.\nExisting SSH, proxy and firewall rules are not changed.')
+    CONSOLE.installing=True;CONSOLE.stage(4,6,'Install & configure')
     CONSOLE.hint('Installing dependencies. Details go to a private local log.')
-    run(['apt-get','update']);run(['apt-get','install','-y','--no-install-recommends','sudo','ca-certificates','openssl','certbot'])
+    run(['apt-get','update']);run(['apt-get','install','-y','--no-install-recommends','openssl','certbot',*AGENT_PACKAGES])
     CONSOLE.ok('Dependencies ready.')
     cert,key=tls_manager.ensure(tls_plan)
     files();who=account('dvlab-hub');grant_update(who)
@@ -425,7 +481,7 @@ TasksMax=80
 WantedBy=multi-user.target
 ''')
     CONSOLE.ok('Account, TLS files and bounded services configured.')
-    CONSOLE.stage(5,5,'Start service')
+    CONSOLE.stage(5,6,'Start service')
     run(['systemctl','daemon-reload']);run(['systemctl','enable','--now','dv-lab-hub.service'])
     run(['systemctl','enable','--now','dv-lab-tls-renew.timer'])
     run(['systemctl','is-enabled','--quiet','dv-lab-tls-renew.timer'])
@@ -435,6 +491,8 @@ WantedBy=multi-user.target
     CONSOLE.line('Next: sudo dv-lab','title')
     CONSOLE.ok('Automatic TLS renewal timer is enabled and active.')
     CONSOLE.hint('Public MCP-port access is not verified; keep challenge access available.')
+    CONSOLE.stage(6,6,'Install default local test node')
+    install_mother_agent(url,local_ip,dependencies=False)
 
 
 def userrun(who,args,**kw):
@@ -533,9 +591,16 @@ def agent(url=None):
             code='';CONSOLE.error('Enrollment failed. Check mother TLS/reachability, a unique node name and a fresh invite.')
             if prompt('Retry enrollment? y/n','n').lower() not in ('y','yes'):raise SystemExit('Cancelled before local installation changes.')
             name=ask('Node name',node_name,name);code=secret('New join code')
+    install_agent(url,enrollment,hub_ips)
+
+
+def install_agent(url,enrollment,hub_ips,*,mother_local=False,dependencies=True):
+    """Same rootless runtime, fixed helpers and quotas on remote nodes and mother."""
+    parsed=urlsplit(url)
     CONSOLE.installing=True
-    run(['apt-get','update'])
-    run(['apt-get','install','-y','--no-install-recommends','podman','slirp4netns','uidmap','dbus-user-session','nftables','sudo','fuse-overlayfs','ca-certificates','iproute2'])
+    if dependencies:
+        run(['apt-get','update'])
+        run(['apt-get','install','-y','--no-install-recommends',*AGENT_PACKAGES])
     check=run(['nft','list','tables'],capture_output=True,text=True)
     if 'table inet dv_lab_agent' in check.stdout:raise SystemExit('Reserved nft table exists; refusing takeover. Inspect it before retrying.')
     CONSOLE.ok('Enrolled; dependencies ready.')
@@ -554,6 +619,7 @@ def agent(url=None):
     if not image.startswith('sha256:'):image='sha256:'+image
     cfg=dict(hub=url,**enrollment,image=image,port_start=45100,port_count=8,
              capsule_memory_mib=128,capsule_cpus=.4,account_memory_mib=192,account_cpus=.5)
+    if mother_local:cfg['mother_local']=True
     config(ETC/'agent.json',cfg,who)
     install_resources(who)
     dns=[]
@@ -620,6 +686,7 @@ WantedBy=default.target
 
 
 def main():
+    if sys.argv[1:]==['mother-node-upgrade']:migrate_mother_agent();return
     if sys.argv[1:]==['console-upgrade']:migrate_console();return
     if len(sys.argv)<2:
         CONSOLE.banner('Choose role',__version__)

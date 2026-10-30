@@ -50,3 +50,21 @@ Resource changes use a separate initial-installation pinned broker, not the upda
 
 
 Legacy console usability requires one explicit `console-upgrade` after the application has been remotely updated to the exact same main commit. The operation backs up the original launcher, installs the fixed privilege-dropping launcher and leaves the old snapshot intact. This is the only console migration step; normal subsequent UI updates are application-only. It cannot be invoked through the old root update protocol because that protocol deliberately has no arbitrary root migration action. Fresh nodes receive the new launcher at initial install.
+
+
+## preview.8: default mother-local capsule
+
+Fresh mother installation includes the shared isolated-node installer. Existing
+mothers require the explicit `mother-node-upgrade` root migration documented in
+README after the exact CI-passed application version is installed. The pinned
+MCP application updater intentionally does not perform this host migration or
+replace pinned helpers. No guard schema bump or hidden root execution is added.
+The ordinary updater already detects both installed roles after migration and
+stops/restarts their owned services for subsequent app updates.
+
+CI on Ubuntu22.04 installs a fresh hub including its actual default rootless
+capsule; Ubuntu24.04 installs a real hub with only the new sub-install omitted as
+a legacy fixture, then runs the explicit migration. Both exercise authenticated
+local-agent heartbeat, ordinary MCP exec/logs/resources, private hub credential
+isolation and subsequent remote-node enrollment. Other full remote-node and
+isolation jobs remain required. Local unit success alone is not host acceptance.
