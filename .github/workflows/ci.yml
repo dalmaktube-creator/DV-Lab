@@ -25,3 +25,12 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Rootless namespaces, TUN, cgroups and nft on disposable runner
         run: python3 scripts/ci-report.py
+  python310-terminal:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Python 3.10 controlling-terminal regression (no installation)
+        run: |
+          /usr/bin/python3 --version
+          /usr/bin/python3 -m unittest discover -s tests -p test_terminal.py -v

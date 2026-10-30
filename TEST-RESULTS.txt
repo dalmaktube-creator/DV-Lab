@@ -19,6 +19,10 @@ test_job_deadline_and_logs (test_dvlab.RunnerTests.test_job_deadline_and_logs) .
 test_kill_and_concurrency_limit (test_dvlab.RunnerTests.test_kill_and_concurrency_limit) ... ok
 test_log_ring (test_dvlab.RunnerTests.test_log_ring) ... ok
 test_no_symlink_or_fifo_read (test_dvlab.RunnerTests.test_no_symlink_or_fifo_read) ... ok
+test_default_role_with_pipe_stdin (test_terminal.TerminalPrompts.test_default_role_with_pipe_stdin) ... ok
+test_hidden_input_is_not_echoed (test_terminal.TerminalPrompts.test_hidden_input_is_not_echoed) ... ok
+test_no_controlling_terminal_has_friendly_error (test_terminal.TerminalPrompts.test_no_controlling_terminal_has_friendly_error) ... ok
+test_typed_role_with_pipe_stdin (test_terminal.TerminalPrompts.test_typed_role_with_pipe_stdin) ... ok
 test_account_helpers_do_not_inherit_operator_configuration (test_updates.AccountEnvironment.test_account_helpers_do_not_inherit_operator_configuration) ... ok
 test_podman_environment_uses_actual_uid_not_manager_environment (test_updates.AccountEnvironment.test_podman_environment_uses_actual_uid_not_manager_environment) ... ok
 test_bad_branch_ref_is_not_accepted (test_updates.Updates.test_bad_branch_ref_is_not_accepted) ... ok
@@ -33,6 +37,6 @@ test_validation (test_updates.Updates.test_validation) ... ok
 test_worker_rollback_on_failed_health (test_updates.Updates.test_worker_rollback_on_failed_health) ... ok
 
 ----------------------------------------------------------------------
-Ran 33 tests in 2.361s
+Ran 37 tests in 2.490s
 
 OK

@@ -29,15 +29,24 @@ def run(args, **kw):
 
 
 def prompt(label, default=''):
-    # Bootstrap may have stdin connected to a pipe: prompts always use tty.
-    with open('/dev/tty','r+') as tty:
-        tty.write(label+(f' [{default}]' if default else '')+': ');tty.flush()
-        return tty.readline().strip() or default
+    # A tty is non-seekable: buffered r+ opens fail on Python 3.10+.
+    # Keep separate read/write streams; stdin may be the consumed curl pipe.
+    try:
+        with open('/dev/tty','w') as out, open('/dev/tty','r') as inp:
+            out.write(label+(f' [{default}]' if default else '')+': ');out.flush()
+            answer=inp.readline()
+            if not answer:raise SystemExit('Terminal closed; rerun in an interactive SSH session.')
+            return answer.strip() or default
+    except OSError as exc:
+        raise SystemExit('Interactive terminal unavailable; run from an interactive SSH session, not a background task.') from None
 
 
 def secret(label):
-    with open('/dev/tty','r+') as tty:
-        return getpass.getpass(label+': ',stream=tty)
+    try:
+        with open('/dev/tty','w') as out:
+            return getpass.getpass(label+': ',stream=out)
+    except (OSError,EOFError):
+        raise SystemExit('Interactive terminal unavailable for hidden input; rerun in an interactive SSH session.') from None
 
 
 def confirm(text):
