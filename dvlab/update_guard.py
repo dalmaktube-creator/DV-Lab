@@ -77,7 +77,7 @@ def candidate(commit=None):
         if comparison.get('status') not in ('ahead','identical'):raise ValueError('Candidate is not an ancestor of main')
     checks=api('/commits/'+commit+'/check-runs?per_page=100').get('check_runs',[])
     # CI job name is an installed trust policy, not caller input.
-    required=('unit-and-protocol','ubuntu-isolation','ubuntu-22-hub')
+    required=('unit-and-protocol','ubuntu-isolation','ubuntu-22-isolation','ubuntu-22-hub')
     passed=True
     for name in required:
         matching=[c for c in checks if c.get('name')==name and c.get('head_sha')==commit and c.get('app',{}).get('slug')=='github-actions']
