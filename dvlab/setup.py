@@ -12,19 +12,27 @@ import socket
 import subprocess
 import sys
 import tarfile
+import ssl
 from urllib.parse import urlsplit
 
 from .common import atomic_json, identifier, origin, token
 from .agent import Client
+from . import __version__
+from .install_ui import Console, color
 
 ROOT=Path('/opt/dv-lab')
 ETC=Path('/etc/dv-lab')
 SOURCE=Path(__file__).resolve().parent.parent
 USER='dvlab-node'
+CONSOLE=Console()
 
 
 def run(args, **kw):
-    kw.setdefault("check",True)
+    kw.setdefault('check',True)
+    if CONSOLE.active and not any(k in kw for k in ('capture_output','stdout','stderr')):
+        with CONSOLE.logstream() as log:
+            try:return subprocess.run(args,stdout=log,stderr=subprocess.STDOUT,**kw)
+            finally:CONSOLE.trimlog()
     return subprocess.run(args, **kw)
 
 
@@ -33,7 +41,7 @@ def prompt(label, default=''):
     # Keep separate read/write streams; stdin may be the consumed curl pipe.
     try:
         with open('/dev/tty','w') as out, open('/dev/tty','r') as inp:
-            out.write(label+(f' [{default}]' if default else '')+': ');out.flush()
+            out.write(color('  › '+label+(f' [{default}]' if default else '')+': ','blue',out));out.flush()
             answer=inp.readline()
             if not answer:raise SystemExit('Terminal closed; rerun in an interactive SSH session.')
             return answer.strip() or default
@@ -44,14 +52,82 @@ def prompt(label, default=''):
 def secret(label):
     try:
         with open('/dev/tty','w') as out:
-            return getpass.getpass(label+': ',stream=out)
+            return getpass.getpass(color('  › '+label+': ','blue',out),stream=out)
     except (OSError,EOFError):
         raise SystemExit('Interactive terminal unavailable for hidden input; rerun in an interactive SSH session.') from None
 
 
+def ask(label,validator,default='',hint=''):
+    if hint:CONSOLE.hint(hint)
+    while True:
+        answer=prompt(label,default)
+        try:return validator(answer)
+        except ValueError as exc:CONSOLE.error(str(exc))
+
+
 def confirm(text):
-    print('\033[33m'+text+'\033[0m')
-    if prompt('Type INSTALL to continue')!='INSTALL':raise SystemExit('Cancelled; no installation performed')
+    for line in text.splitlines():CONSOLE.hint(line)
+    CONSOLE.hint('INSTALL = continue  ·  CANCEL = exit')
+    while True:
+        answer=prompt('Confirm').strip().upper()
+        if answer=='INSTALL':return
+        if answer in ('CANCEL','N','NO','Q','QUIT'):raise SystemExit('Cancelled. No installation changes were started.')
+        CONSOLE.error('Enter INSTALL or CANCEL.')
+
+
+def validate_hub_url(value):
+    try:url=origin(value);port=urlsplit(url).port or 443
+    except ValueError:raise ValueError('Use https://DOMAIN:PORT, without /mcp or another path.') from None
+    if port<1024:raise ValueError('Direct TLS needs port 1024–65535; try 8443 or 9443.')
+    try:portcheck(port,1,tcp_only=True)
+    except OSError as exc:
+        if exc.errno==98:raise ValueError(f'TCP port {port} is in use. Choose another port; no service will be stopped.') from None
+        raise ValueError('Cannot bind this TCP port. Check local permissions and choose another.') from None
+    return url
+
+
+def pem_path(value):
+    try:
+        p=Path(value).expanduser()
+        if not p.is_absolute():raise ValueError('Enter a full file path starting with /.')
+        p=p.resolve(strict=True)
+        if not p.is_file():raise ValueError('Choose an existing PEM file, not a directory.')
+        with p.open('rb') as f:f.read(1)
+        return p
+    except (OSError,RuntimeError):raise ValueError('PEM file not found or unreadable. Check the full path.') from None
+
+
+def tls_files():
+    CONSOLE.hint('Existing certificate required; no automatic TLS issuance.')
+    while True:
+        cert=ask('Certificate PEM',pem_path,hint='Example: /etc/letsencrypt/live/YOUR-DOMAIN/fullchain.pem')
+        key=ask('Private-key PEM',pem_path,hint='Enter the local file path only; never paste key contents.')
+        try:
+            ctx=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER);ctx.load_cert_chain(cert,key,password='')
+            return cert,key
+        except (ssl.SSLError,OSError):
+            CONSOLE.error('Certificate/key could not be loaded. Use matching PEM files and an unencrypted service key.')
+
+
+def validate_role(value):
+    role={'1':'hub','2':'agent','mother':'hub','node':'agent'}.get(value.strip().lower(),value.strip().lower())
+    if role not in ('hub','agent'):raise ValueError('Choose hub (mother) or agent (test node).')
+    return role
+
+
+def mother_url(value):
+    try:
+        url=origin(value);parsed=urlsplit(url)
+        ips=sorted({x[4][0] for x in socket.getaddrinfo(parsed.hostname,parsed.port or 443,socket.AF_INET,socket.SOCK_STREAM)})
+        if not ips or not all(ipaddress.IPv4Address(x).is_global for x in ips):raise ValueError('Mother must resolve to public IPv4.')
+        return url
+    except socket.gaierror:raise ValueError('DNS lookup failed. Check the domain and its DNS record.') from None
+    except ValueError:raise ValueError('Use an HTTPS mother address that resolves to public IPv4.') from None
+
+
+def node_name(value):
+    try:return identifier(value)
+    except ValueError:raise ValueError('Use 1–64 letters, digits, hyphens or underscores for the node name.') from None
 
 
 def validate_platform(release,role):
@@ -222,28 +298,33 @@ def bundle(path):
     path.chmod(0o644)
 
 
-def portcheck(start,count):
+def portcheck(start,count,tcp_only=False):
     sockets=[]
     try:
         for port in range(start,start+count):
-            for kind in (socket.SOCK_STREAM,socket.SOCK_DGRAM):
+            for kind in ((socket.SOCK_STREAM,) if tcp_only else (socket.SOCK_STREAM,socket.SOCK_DGRAM)):
                 s=socket.socket(socket.AF_INET,kind);sockets.append(s);s.bind(('0.0.0.0',port))
     finally:
         for s in sockets:s.close()
 
 
 def hub():
-    preflight('hub')
-    url=origin(prompt('Public HTTPS origin (direct TLS, e.g. https://lab.example.com:8443)'))
+    CONSOLE.banner('Mother / Hub',__version__)
+    CONSOLE.stage(1,5,'System checks')
+    preflight('hub');CONSOLE.ok('System and reserved account checked.')
+    CONSOLE.stage(2,5,'Connection & TLS')
+    CONSOLE.hint('Example: https://lab.YOUR-DOMAIN.com:9443')
+    CONSOLE.hint('Local TCP check only; firewall/public access is not checked.')
+    url=ask('Public HTTPS address',validate_hub_url)
     parsed=urlsplit(url);port=parsed.port or 443
-    if port<1024:raise SystemExit('Use unprivileged direct TLS port >=1024, e.g. 8443')
-    portcheck(port,1)
-    cert=Path(prompt('Existing fullchain PEM path')).resolve()
-    key=Path(prompt('Existing private key PEM path')).resolve()
-    import ssl
-    ctx=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER);ctx.load_cert_chain(cert,key)
-    confirm('Installs dedicated hub account, TLS service, /opt/dv-lab and menu. No nginx/firewall changes. Updates trust CI-passed main commits from dalmaktube-creator/DV-Lab; only unprivileged app code changes. Root helpers/config/quotas remain pinned. Make the chosen TCP port reachable separately.')
+    cert,key=tls_files();CONSOLE.ok('PEM pair loaded.')
+    CONSOLE.stage(3,5,'Review & approve')
+    CONSOLE.summary([('Role','Mother'),('Address',url),('Service budget','0.25 CPU / 256 MiB')])
+    confirm('Creates a dedicated hub account and bounded services.\nUpdates trust approved commits of this repo; root policy stays pinned.\nExisting SSH, proxy and firewall rules are not changed.')
+    CONSOLE.installing=True;CONSOLE.stage(4,5,'Install & configure')
+    CONSOLE.hint('Installing dependencies. Details go to a private local log.')
     run(['apt-get','update']);run(['apt-get','install','-y','--no-install-recommends','sudo','ca-certificates'])
+    CONSOLE.ok('Dependencies ready.')
     files();who=account('dvlab-hub');grant_update(who)
     state=Path('/var/lib/dv-lab-hub');state.mkdir(mode=0o700);os.chown(state,who.pw_uid,who.pw_gid)
     tls=ETC/'tls';tls.mkdir(mode=0o750);os.chown(tls,0,who.pw_gid)
@@ -282,8 +363,13 @@ TasksMax=80
 [Install]
 WantedBy=multi-user.target
 ''')
+    CONSOLE.ok('Account, TLS files and bounded services configured.')
+    CONSOLE.stage(5,5,'Start service')
     run(['systemctl','daemon-reload']);run(['systemctl','enable','--now','dv-lab-hub.service'])
-    print('Hub installed. Run: sudo dv-lab . Renewed TLS files must be copied to /etc/dv-lab/tls and hub restarted.')
+    run(['systemctl','is-active','--quiet','dv-lab-hub.service'])
+    CONSOLE.ok('Mother service started.')
+    CONSOLE.line('Next: sudo dv-lab','title')
+    CONSOLE.hint('Public access is not verified. TLS renewal remains operator-managed.')
 
 
 def userrun(who,args,**kw):
@@ -305,22 +391,43 @@ def subids(name):
 
 
 def agent(url=None):
+    CONSOLE.banner('Isolated test node',__version__)
+    CONSOLE.stage(1,6,'System checks')
     preflight('agent')
-    url=origin(url or prompt('Mother HTTPS origin'))
+    try:portcheck(45100,8)
+    except OSError:raise SystemExit('Lab ports 45100–45107 must be free. No existing service will be stopped.') from None
+    if not Path('/dev/net/tun').exists():raise SystemExit('/dev/net/tun is required; host-network fallback is disabled.')
+    CONSOLE.ok('System and reserved test ports checked.')
+    CONSOLE.stage(2,6,'Mother & node identity')
+    if url:
+        try:url=mother_url(url)
+        except ValueError as exc:
+            CONSOLE.error(str(exc));url=ask('Mother HTTPS address',mother_url)
+    else:url=ask('Mother HTTPS address',mother_url)
     parsed=urlsplit(url)
     hub_ips=sorted({x[4][0] for x in socket.getaddrinfo(parsed.hostname,parsed.port or 443,socket.AF_INET,socket.SOCK_STREAM)})
-    if not hub_ips or not all(ipaddress.IPv4Address(x).is_global for x in hub_ips):raise SystemExit('Mother must resolve to public IPv4')
-    portcheck(45100,8)
-    if not Path('/dev/net/tun').exists():raise SystemExit('/dev/net/tun required; no host network fallback')
-    name=identifier(prompt('Node name',re.sub('[^a-zA-Z0-9_-]','-',socket.gethostname())[:48]))
-    code=secret('One-use invitation (hidden)')
-    confirm('One-time host changes: dedicated unprivileged account; Podman packages/image; bounded user slice; own nft table on ports 45100-45107; exact sudo peer-set helper. Lab account: <=0.5 CPU,192MiB incl networking; capsule <=0.4 CPU,128MiB. Existing firewall rules are NOT removed. App updates trust CI-passed main commits from dalmaktube-creator/DV-Lab; no root helper, quota or system-package updates. Not production-certified.')
-    # No invitation is written to disk, argv or URLs.
-    enrollment=Client(url).post('/agent/enroll',dict(code=code,name=name));code=''
+    default=re.sub('[^a-zA-Z0-9_-]','-',socket.gethostname())[:48]
+    name=ask('Node name',node_name,default)
+    CONSOLE.hint('One-use invitation from the mother; input is hidden.')
+    code=secret('Join code')
+    CONSOLE.stage(3,6,'Review & approve')
+    CONSOLE.summary([('Node',name),('Mother',url),('Lab ports','45100–45107 TCP + UDP'),('Account budget','0.5 CPU / 192 MiB')])
+    confirm('Adds a rootless capsule, own account, helper and firewall table.\nCapsule: 0.4 CPU / 128 MiB. Updates trust this repo.\nExisting services are not rewritten; shared-kernel testing is not risk-free.')
+    CONSOLE.stage(4,6,'Enroll & install dependencies')
+    while True:
+        try:enrollment=Client(url).post('/agent/enroll',dict(code=code,name=name));code='';break
+        except (OSError,RuntimeError,ValueError):
+            code='';CONSOLE.error('Enrollment failed. Check mother TLS/reachability, a unique node name and a fresh invite.')
+            if prompt('Retry enrollment? y/n','n').lower() not in ('y','yes'):raise SystemExit('Cancelled before local installation changes.')
+            name=ask('Node name',node_name,name);code=secret('New join code')
+    CONSOLE.installing=True
     run(['apt-get','update'])
     run(['apt-get','install','-y','--no-install-recommends','podman','slirp4netns','uidmap','dbus-user-session','nftables','sudo','fuse-overlayfs','ca-certificates','iproute2'])
     check=run(['nft','list','tables'],capture_output=True,text=True)
-    if 'table inet dv_lab_agent' in check.stdout:raise SystemExit('Reserved nft table exists; refusing takeover')
+    if 'table inet dv_lab_agent' in check.stdout:raise SystemExit('Reserved nft table exists; refusing takeover. Inspect it before retrying.')
+    CONSOLE.ok('Enrolled; dependencies ready.')
+    CONSOLE.stage(5,6,'Build isolated environment')
+    CONSOLE.hint('One-time image build; detailed output is kept in the private log.')
     files();who=account(USER);subids(USER);grant_update(who)
     state=Path("/var/lib/dv-lab-node");state.mkdir(mode=0o700);os.chown(state,who.pw_uid,who.pw_gid)
     run(['loginctl','enable-linger',USER]);run(['systemctl','start',f'user@{who.pw_uid}.service'])
@@ -380,20 +487,45 @@ KillMode=control-group
 WantedBy=default.target
 ''')
     # Unit is root-owned, read-only to the dedicated user. Parent home isn't mounted in capsule.
+    CONSOLE.ok('Image, quotas and dedicated network guard configured.')
+    CONSOLE.stage(6,6,'Start node')
     run(['systemctl','daemon-reload'])
     run(['systemctl','enable','--now','dv-lab-network.service'])
     run(['systemctl','set-property',f'user-{who.pw_uid}.slice','CPUQuota=50%','MemoryMax=192M','MemorySwapMax=0','TasksMax=128'])
     userrun(who,['systemctl','--user','daemon-reload']);userrun(who,['systemctl','--user','enable','--now','dv-lab-agent.service'])
-    print('Node installed. First capsule creation validates cgroups, namespaces and TUN; failure stops capsule. Run sudo dv-lab for status.')
+    CONSOLE.ok('Node service started.')
+    CONSOLE.line('Next: sudo dv-lab','title')
+    CONSOLE.hint('First capsule creation verifies namespaces, cgroups and TUN; failures stop the capsule.')
 
 
 def main():
     if len(sys.argv)<2:
-        print('DV LAB — Mother / Node installer')
-        role=prompt('Role: hub or agent','hub')
-    else:role=sys.argv[1]
-    if role not in ('hub','agent'):raise SystemExit('Usage: sudo bash install.sh hub|agent [https://mother:8443]')
+        CONSOLE.banner('Choose role',__version__)
+        role=ask('Role',validate_role,'hub',hint='hub = mother  ·  agent = isolated test node')
+    else:
+        try:role=validate_role(sys.argv[1])
+        except ValueError as exc:raise SystemExit(str(exc))
     if role=='hub':hub()
     else:agent(sys.argv[2] if len(sys.argv)>2 else None)
 
-if __name__=='__main__':main()
+
+def entrypoint():
+    try:
+        main();return 0
+    except KeyboardInterrupt:
+        CONSOLE.warn('Cancelled.')
+        if CONSOLE.installing:CONSOLE.hint('Installation may be partial; inspect the local log before retrying.')
+        return 130
+    except SystemExit as exc:
+        if exc.code in (None,0):return 0
+        CONSOLE.error(str(exc.code));return 1
+    except subprocess.CalledProcessError as exc:
+        CONSOLE.error('Command failed: '+str(exc.cmd[0])+'. No automatic destructive retry was attempted.')
+    except (ValueError,OSError,RuntimeError) as exc:
+        CONSOLE.error(str(exc)[:220])
+    if CONSOLE.log_path:CONSOLE.hint('Private log: '+str(CONSOLE.log_path))
+    if CONSOLE.installing:CONSOLE.hint('Installation may be partial; inspect before retrying.')
+    return 1
+
+
+if __name__=='__main__':raise SystemExit(entrypoint())

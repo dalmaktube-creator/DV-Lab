@@ -15,9 +15,15 @@ from dvlab.agent import Client
 if os.environ.get('GITHUB_ACTIONS')!='true' or os.geteuid()!=0:raise SystemExit('Disposable root CI only')
 origin='https://localhost:18443'
 answers=iter((origin,sys.argv[1],sys.argv[2]))
-setup.prompt=lambda *_:next(answers)
+setup.prompt=lambda *args,**kwargs:next(answers)
 setup.confirm=lambda text:print('CI operator-approved install: hub only; no production server involved')
-setup.hub()  # Actual packages, account, files, TLS copy, sudoers and systemd unit.
+try:
+    setup.hub()  # Actual packages, account, files, TLS copy and systemd unit.
+except Exception:
+    if setup.CONSOLE.log_path:
+        print('CI private install log tail:')
+        print(setup.CONSOLE.log_path.read_text(errors='replace')[-5000:])
+    raise
 cfg=json.loads(Path('/etc/dv-lab/hub.json').read_text())
 for attempt in range(50):
     try:
