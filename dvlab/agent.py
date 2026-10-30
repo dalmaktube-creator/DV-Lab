@@ -163,8 +163,8 @@ class Capsule:
 
     def operate(self, operation):
         validate_operation(operation)
-        self.ensure()
         with self.lock:
+            self.ensure()
             result=self.exec_json(operation)
             if operation["op"]=="metrics":
                 result["lab_account"]=account_metrics()
@@ -240,10 +240,14 @@ class Agent:
 
     def watchdog(self):
         while not self.quit.wait(2):
-            if time.monotonic()-self.contact>60 or time.monotonic()-self.capsule.last_use>600:
-                try:self.capsule.stop()
-                except Exception:pass
-                self.status="offline_or_idle_capsule_stopped"
+            # Re-evaluate expiry AFTER acquiring the same lock as ensure/operate.
+            # A stale decision queued behind a new capsule must not delete it.
+            with self.capsule.lock:
+                now=time.monotonic()
+                if now-self.contact>60 or now-self.capsule.last_use>600:
+                    try:self.capsule.stop()
+                    except Exception:pass
+                    self.status="offline_or_idle_capsule_stopped"
     def run(self):
         verify_account_limits(self.cfg)
         self.capsule.samples.start()
