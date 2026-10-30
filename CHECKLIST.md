@@ -13,3 +13,13 @@ Use two disposable Ubuntu 24.04 VMs, not production tunnel endpoints.
 - [ ] Pause, unplug control link, stop/kill agent and reboot; verify owned capsule cleanup and network guard before user service. Never infer a remote stop solely from the hub acknowledgment.
 - [ ] Check actual idle RSS/CPU and active network helper overhead. Record versions/hardware. No claimed overhead percentage until measured.
 - [ ] Review TLS renewal, token incident response, firewall reload ownership, root-owned configs and immutable image ID.
+
+
+## Mother-local default (preview.8)
+
+- [ ] Fresh mother exposes mother-local with authenticated heartbeat through lab_nodes.
+- [ ] Ordinary MCP executes only inside its real isolated capsule, with TUN and no hub credentials.
+- [ ] Explicit existing-mother migration preserves hub config/TLS/tokens and remote enrollment.
+- [ ] Both dedicated accounts/cgroups retain independent limits and host services remain untouched.
+- [ ] Later remote-node enrollment and existing full-node CI continue to pass.
+- [ ] Existing live mother migrated by operator; real capsule probe verified before WAN benchmark.

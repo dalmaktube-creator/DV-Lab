@@ -1,6 +1,6 @@
 # DV Lab
 
-**0.2.0-preview.7 — isolated multi-server test lab with an MCP controller.**
+**0.2.0-preview.8 — isolated multi-server test lab with an MCP controller.**
 
 [راهنمای فارسی](README.fa.md) · [Updates](UPDATE.md) · [Security boundaries](SECURITY.md) · [Acceptance checklist](CHECKLIST.md)
 
@@ -15,6 +15,39 @@ curl -fsSL https://raw.githubusercontent.com/dalmaktube-creator/DV-Lab/main/inst
 The installer asks for **hub** or **agent**, reads prompts through `/dev/tty`, pins an exact main commit, requires passing GitHub CI, verifies downloaded files against that commit's Git tree, and asks for explicit confirmation before host changes. For a private repository, unauthenticated raw downloads do not work. No GitHub token is collected by this installer.
 
 **Preview, not production-certified.** Hub: Ubuntu 22.04 or 24.04. Isolated agent: Ubuntu 22.04 or 24.04. Both require systemd + cgroup v2. Hub needs public DNS; TLS is discovered or obtained automatically as documented below. No webserver shutdown or host firewall override. Target-server throughput remains a separate validation task.
+
+## Mother includes a test node by default
+
+Fresh **hub** installation now provisions `mother-local` automatically, using the
+**same** rootless agent installer as remote servers. It appears in `lab_nodes`
+with `info.location="mother"`; use its returned ID with the existing exec, file,
+log, metrics and resource tools. No new host-shell tool or privileged fallback.
+The hub and lab agent have different Unix accounts, credentials and cgroups.
+Starting local-agent limits: account0.5CPU/192MiB, capsule0.4CPU/128MiB, lab ports
+45100–45107 TCP/UDP. Hub budget remains0.25CPU/256MiB. A direct mother domain
+with one public IPv4, free test ports and TUN are checked before install changes.
+The capsule is created lazily by the normal agent and removed on idle/offline;
+it is not an always-running workload. Remote nodes can still be added later.
+
+### Existing mother (preview.7 or earlier)
+
+An application-only MCP update **cannot** add Unix users, packages, root helpers,
+network policy or systemd units. Keep that installed privilege boundary intact.
+After this exact release has been merged, CI-passed and applied normally, an
+operator must run this **one-time root migration on the mother**:
+
+```bash
+sudo sh -c 'cd /opt/dv-lab/current && /usr/bin/python3 -m dvlab.setup mother-node-upgrade'
+```
+
+Review the displayed changes and confirm `INSTALL`. This uses the shared agent
+installer without rewriting the hub configuration, TLS, tokens or remote-node
+registrations. Existing agent accounts/configs, occupied ports, mismatched source
+commit or duplicate `mother-local` enrollment are refused, never taken over.
+Partial installation is reported for inspection, not automatically retried.
+Updating only the Python application is **not** reported as a completed migration.
+Confirm an authenticated `mother-local` heartbeat and a real capsule command via
+MCP before starting tunnel tests. A merge alone does not deploy to existing hosts.
 
 ## Control center
 

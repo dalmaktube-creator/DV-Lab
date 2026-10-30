@@ -15,8 +15,8 @@ from dvlab import tls_manager
 from unittest.mock import patch
 
 if os.environ.get('GITHUB_ACTIONS')!='true' or os.geteuid()!=0:raise SystemExit('Disposable root CI only')
-origin='https://localhost:18443'
-answers=iter(('localhost','18443'))
+origin='https://dv-lab-hub-ci.test:18443'
+answers=iter(('dv-lab-hub-ci.test','18443'))
 lineage=tls_manager.OWN/'live/ci-fixture'
 lineage.mkdir(parents=True)
 (lineage/'fullchain.pem').symlink_to(sys.argv[1])
@@ -27,7 +27,12 @@ setup.prompt=lambda *args,**kwargs:next(answers)
 setup.confirm=lambda text:print('CI operator-approved install: hub only; no production server involved')
 try:
     with patch.object(tls_manager.Manager,'acme',lambda self,args,message: print('CI: external ACME request mocked; real certificate validation/deployment retained')):
-        setup.hub()  # Actual packages, account, TLS validation/deploy, services and timer.
+        if os.environ.get('DV_LAB_CI_MIGRATION')=='1':
+            # A real hub lacking only the newly introduced local agent, like preview.7.
+            with patch.object(setup,'install_mother_agent'):
+                setup.hub()
+        else:
+            setup.hub()  # Real default hub + local rootless node installation.
 except Exception:
     if setup.CONSOLE.log_path:
         print('CI private install log tail:')
@@ -41,6 +46,11 @@ for attempt in range(50):
     except (OSError,urllib.error.URLError):time.sleep(.2)
 else:raise AssertionError('Hub never became healthy')
 assert health['commit']==os.environ['GITHUB_SHA'],health
+original_cfg=Path('/etc/dv-lab/hub.json').read_bytes()
+if os.environ.get('DV_LAB_CI_MIGRATION')=='1':
+    setup.migrate_mother_agent()
+    assert Path('/etc/dv-lab/hub.json').read_bytes()==original_cfg
+    print('PASS: explicit existing-mother migration preserved the original hub configuration')
 mcp=Client(origin,cfg['mcp_token'])
 r=mcp.post('/mcp',dict(jsonrpc='2.0',id=1,method='initialize',params={'protocolVersion':'2025-03-26'}));assert r['result']['serverInfo']['name']=='DV Lab',r
 r=mcp.post('/mcp',dict(jsonrpc='2.0',id=2,method='tools/list'));assert len(r['result']['tools'])==13,r
@@ -48,6 +58,53 @@ r=mcp.post('/mcp',dict(jsonrpc='2.0',id=2,method='tools/list'));assert len(r['re
 r=mcp.post('/mcp',dict(jsonrpc='2.0',id=3,method='tools/call',params={'name':'lab_update','arguments':{'target':'mother','action':'status'}}));assert r['result']['isError'] is False,r
 state=json.loads(r['result']['content'][0]['text']);assert state['current']==health['commit'],state
 assert subprocess.check_output(['systemctl','show','--property=NoNewPrivileges','--value','dv-lab-hub.service'],text=True).strip()=='yes'
+# The mother must now expose its own real isolated agent through ordinary MCP.
+sequence=10
+
+def call(name,args):
+    global sequence
+    sequence+=1
+    reply=mcp.post('/mcp',dict(jsonrpc='2.0',id=sequence,method='tools/call',params=dict(name=name,arguments=args)))['result']
+    assert not reply['isError'],reply
+    return json.loads(reply['content'][0]['text'])
+
+def action(name,args):
+    queued=call(name,args)
+    for _ in range(180):
+        result=call('lab_action',{'action':queued['action']})
+        if result['state']=='done':
+            assert result['result']['ok'],result
+            return result['result']['result']
+        assert result['state'] not in ('expired','cancelled'),result
+        time.sleep(.25)
+    raise AssertionError('Mother local capsule action timeout')
+
+for _ in range(160):
+    nodes=call('lab_nodes',{});local=[n for n in nodes if n['name']=='mother-local' and n['info'].get('location')=='mother']
+    if local:break
+    time.sleep(.25)
+else:raise AssertionError('No mother-local authenticated heartbeat')
+node=local[0]['id'];assert local[0]['public_ipv4']=='192.0.0.9',local
+agent=json.loads(Path('/etc/dv-lab/agent.json').read_text());assert agent['mother_local'] is True
+assert agent['token'] not in (cfg['mcp_token'],cfg['admin_token'])
+import pwd
+assert pwd.getpwnam('dvlab-node').pw_uid!=pwd.getpwnam('dvlab-hub').pw_uid
+assert subprocess.run(['runuser','-u','dvlab-node','--','test','-r','/etc/dv-lab/hub.json']).returncode!=0
+process=action('lab_exec',dict(node=node,command='echo mother-capsule-ok && test ! -e /etc/dv-lab/hub.json && test ! -e /etc/dv-lab/agent.json && test -c /dev/net/tun',seconds=10))['process']
+for _ in range(50):
+    logs=action('lab_logs',dict(node=node,process=process))
+    if not logs['running']:break
+    time.sleep(.2)
+assert logs['exit_code']==0 and 'mother-capsule-ok' in logs['output'],logs
+state=action('lab_resources',dict(node=node,action='status'));assert state['current']['account_memory_mib']==192,state
+with urllib.request.urlopen(origin+'/health',timeout=3) as response:assert response.status==200
+# Later remote-node enrollment still works with the default local node present.
+admin=Client(origin,cfg['admin_token']);invite=admin.post('/admin/invite',{})
+remote=Client(origin).post('/agent/enroll',dict(code=invite['code'],name='ci-later-remote'))
+assert {n['id'] for n in call('lab_nodes',{})}=={node,remote['node']}
+admin.conn.close()
+print('PASS: mother-local real rootless capsule, TUN, isolated credentials, ordinary MCP execution/logs/resources, independent hub health, later remote enrollment')
+
 mcp.conn.close()
 try:
     Client(origin,'invalid-token').post('/mcp',dict(jsonrpc='2.0',id=4,method='tools/list'))
