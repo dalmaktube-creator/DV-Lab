@@ -20,6 +20,7 @@ test_kill_and_concurrency_limit (test_dvlab.RunnerTests.test_kill_and_concurrenc
 test_log_ring (test_dvlab.RunnerTests.test_log_ring) ... ok
 test_no_symlink_or_fifo_read (test_dvlab.RunnerTests.test_no_symlink_or_fifo_read) ... ok
 test_account_helpers_do_not_inherit_operator_configuration (test_updates.AccountEnvironment.test_account_helpers_do_not_inherit_operator_configuration) ... ok
+test_podman_environment_uses_actual_uid_not_manager_environment (test_updates.AccountEnvironment.test_podman_environment_uses_actual_uid_not_manager_environment) ... ok
 test_bad_branch_ref_is_not_accepted (test_updates.Updates.test_bad_branch_ref_is_not_accepted) ... ok
 test_both_ci_checks_latest_must_pass (test_updates.Updates.test_both_ci_checks_latest_must_pass) ... ok
 test_git_blob_integrity (test_updates.Updates.test_git_blob_integrity) ... ok
@@ -32,6 +33,6 @@ test_validation (test_updates.Updates.test_validation) ... ok
 test_worker_rollback_on_failed_health (test_updates.Updates.test_worker_rollback_on_failed_health) ... ok
 
 ----------------------------------------------------------------------
-Ran 32 tests in 2.324s
+Ran 33 tests in 2.361s
 
 OK

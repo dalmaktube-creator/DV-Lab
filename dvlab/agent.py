@@ -3,6 +3,7 @@ import argparse
 import http.client
 import json
 import os
+import pwd
 from pathlib import Path
 import signal
 import ssl
@@ -21,9 +22,17 @@ NAME="dv-lab-box"
 LABEL="io.dv-lab.owner"
 
 
+def host_environment():
+    who=pwd.getpwuid(os.getuid());runtime='/run/user/'+str(who.pw_uid)
+    return dict(PATH='/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',HOME=who.pw_dir,
+        USER=who.pw_name,LOGNAME=who.pw_name,LANG='C.UTF-8',
+        XDG_CONFIG_HOME=who.pw_dir+'/.config',XDG_DATA_HOME=who.pw_dir+'/.local/share',
+        XDG_RUNTIME_DIR=runtime,DBUS_SESSION_BUS_ADDRESS='unix:path='+runtime+'/bus')
+
+
 def fixed_run(argv, data=None, timeout=20):
     # Never pass a remote command to a host shell.
-    p=subprocess.run(argv,input=data,capture_output=True,timeout=timeout,check=False)
+    p=subprocess.run(argv,input=data,capture_output=True,timeout=timeout,check=False,env=host_environment())
     if len(p.stdout)>MAX_BODY or len(p.stderr)>65536:
         raise RuntimeError("Host helper output exceeded its fixed bound")
     if p.returncode:

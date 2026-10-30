@@ -2,11 +2,11 @@
 from pathlib import Path
 import sys,time,subprocess
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
-from dvlab.agent import Capsule,verify_account_limits
+from dvlab.agent import Capsule,verify_account_limits,host_environment
 root=Path(__file__).resolve().parent.parent
 cfg=dict(node='ci',image=(root/'image-id').read_text().strip(),port_start=45100,port_count=8,capsule_cpus=.4,capsule_memory_mib=128,account_cpus=.5,account_memory_mib=192)
 def diagnostic_run(argv,data=None,timeout=20):
-    p=subprocess.run(argv,input=data,capture_output=True,timeout=timeout)
+    p=subprocess.run(argv,input=data,capture_output=True,timeout=timeout,env=host_environment())
     if p.returncode:
         print('CI fixed-helper failure:',argv[0:2], 'exit',p.returncode, file=sys.stderr)
         print(p.stderr.decode(errors='replace')[-6000:],file=sys.stderr)

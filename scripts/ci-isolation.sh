@@ -36,4 +36,4 @@ PY
 nft -c -f /tmp/dv-lab-ci.nft
 nft -f /tmp/dv-lab-ci.nft
 # The entire test + rootless helpers belong to the bounded user slice.
-runuser -u dvlab-ci -- env -i HOME=/home/dvlab-ci USER=dvlab-ci LOGNAME=dvlab-ci PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin XDG_CONFIG_HOME=/home/dvlab-ci/.config XDG_DATA_HOME=/home/dvlab-ci/.local/share XDG_RUNTIME_DIR="$runtime" DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" systemd-run --user --wait --pipe --collect --unit=dv-lab-ci-test --property=Delegate=yes --working-directory="$root" /usr/bin/python3 "$root/scripts/smoke.py"
+runuser -u dvlab-ci -- env -i HOME=/home/dvlab-ci USER=dvlab-ci LOGNAME=dvlab-ci PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin XDG_CONFIG_HOME=/home/dvlab-ci/.config XDG_DATA_HOME=/home/dvlab-ci/.local/share XDG_RUNTIME_DIR="$runtime" DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" systemd-run --user --wait --pipe --collect --unit=dv-lab-ci-test --property=Delegate=yes --setenv=HOME=/home/dvlab-ci --setenv=XDG_RUNTIME_DIR="$runtime" --setenv=DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" --working-directory="$root" /usr/bin/python3 "$root/scripts/smoke.py"

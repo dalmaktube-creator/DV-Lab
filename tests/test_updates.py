@@ -103,3 +103,13 @@ class AccountEnvironment(unittest.TestCase):
             args=g.node_command('restart')
             self.assertEqual(args[args.index('env')+1],'-i')
             self.assertIn('HOME=/home/dvlab-node',args)
+    def test_podman_environment_uses_actual_uid_not_manager_environment(self):
+        from types import SimpleNamespace
+        from dvlab.agent import host_environment
+        who=SimpleNamespace(pw_uid=1234,pw_name='lab',pw_dir='/home/lab')
+        with patch('pwd.getpwuid',return_value=who),patch.dict(os.environ,{'XDG_RUNTIME_DIR':'/run/user/999','CONTAINERS_STORAGE_CONF':'/private/other','SSH_AUTH_SOCK':'/secret'}):
+            env=host_environment()
+            self.assertEqual(env['XDG_RUNTIME_DIR'],'/run/user/1234')
+            self.assertEqual(env['DBUS_SESSION_BUS_ADDRESS'],'unix:path=/run/user/1234/bus')
+            self.assertNotIn('CONTAINERS_STORAGE_CONF',env)
+            self.assertNotIn('SSH_AUTH_SOCK',env)
